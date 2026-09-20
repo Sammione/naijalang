@@ -78,41 +78,67 @@
   margin: 0 auto;
 }
 
+.mobileTopBar { display: none; }
+
 @media (max-width: 768px) {
-  .container {
-    flex-direction: column;
+  .container { flex-direction: column; }
+  
+  .mobileTopBar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-4) var(--spacing-6);
+    background-color: var(--color-surface);
+    border-bottom: 1px solid var(--color-gray-100);
+    z-index: 90;
+    position: sticky;
+    top: 0;
   }
+  
+  .mobileTopBar .logo { margin-bottom: 0; padding-left: 0; }
+  .desktopLogo { display: none; }
   
   .sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid var(--color-gray-100);
-    padding: var(--spacing-4);
-    flex-direction: row;
-    align-items: center;
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100vh;
+    transform: translateX(-100%);
+    z-index: 100;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  .sidebarOpen { transform: translateX(0); }
+  
+  .mainContent { padding: var(--spacing-6); }
+  
+  .overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 95;
+  }
+  
+  .hamburger {
+    display: flex;
+    flex-direction: column;
     justify-content: space-between;
-  }
-  
-  .logo {
-    margin-bottom: 0;
-    padding-left: 0;
-  }
-  
-  .nav {
-    display: none; /* In a real app, this would be a hamburger menu */
-  }
-  
-  .userProfile {
-    padding: 0;
+    width: 24px;
+    height: 18px;
     background: transparent;
-    margin-top: 0;
+    border: none;
+    cursor: pointer;
   }
-  
-  .userProfile > div:last-child {
-    display: none; /* Hide text, show only avatar */
+
+  .bar {
+    width: 100%;
+    height: 2px;
+    background-color: var(--color-gray-900);
+    border-radius: 2px;
+    transition: all 0.3s ease;
   }
-  
-  .mainContent {
-    padding: var(--spacing-6);
-  }
+
+  .barOpen1 { transform: translateY(8px) rotate(45deg); }
+  .barOpen2 { opacity: 0; }
+  .barOpen3 { transform: translateY(-8px) rotate(-45deg); }
 }
