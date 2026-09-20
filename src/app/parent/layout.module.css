@@ -1,0 +1,118 @@
+.container {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--color-background);
+}
+
+.sidebar {
+  width: 260px;
+  background-color: var(--color-surface);
+  border-right: 1px solid var(--color-gray-100);
+  display: flex;
+  flex-direction: column;
+  padding: var(--spacing-8) var(--spacing-6);
+  box-shadow: var(--shadow-sm);
+  z-index: 10;
+}
+
+.logo {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-gray-900);
+  margin-bottom: var(--spacing-16);
+  padding-left: var(--spacing-4);
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  flex-grow: 1;
+}
+
+.navItem {
+  padding: var(--spacing-3) var(--spacing-4);
+  border-radius: var(--radius-md);
+  color: var(--color-gray-600);
+  font-weight: 500;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+}
+
+.navItem:hover, .navItemActive {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-hover);
+}
+
+.userProfile {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4);
+  background-color: var(--color-gray-50);
+  border-radius: var(--radius-lg);
+  margin-top: auto;
+}
+
+.avatar {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-hover));
+  color: var(--color-surface);
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: var(--text-lg);
+}
+
+.mainContent {
+  flex-grow: 1;
+  padding: var(--spacing-12);
+  overflow-y: auto;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (max-width: 768px) {
+  .container {
+    flex-direction: column;
+  }
+  
+  .sidebar {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid var(--color-gray-100);
+    padding: var(--spacing-4);
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  
+  .logo {
+    margin-bottom: 0;
+    padding-left: 0;
+  }
+  
+  .nav {
+    display: none; /* In a real app, this would be a hamburger menu */
+  }
+  
+  .userProfile {
+    padding: 0;
+    background: transparent;
+    margin-top: 0;
+  }
+  
+  .userProfile > div:last-child {
+    display: none; /* Hide text, show only avatar */
+  }
+  
+  .mainContent {
+    padding: var(--spacing-6);
+  }
+}
