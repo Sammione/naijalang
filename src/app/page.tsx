@@ -1,24 +1,11 @@
 import styles from "./page.module.css";
 import Link from "next/link";
+import Navbar from "@/components/Navbar";
 
 export default function Home() {
   return (
     <main className={styles.main}>
-      {/* Navigation */}
-      <nav className={styles.nav}>
-        <div className={`container ${styles.navContainer}`}>
-          <div className={styles.logo}>Nija Language Hub</div>
-          <div className={styles.navLinks}>
-            <Link href="/languages">Languages</Link>
-            <Link href="/programs">Programs</Link>
-            <Link href="/pricing">Pricing</Link>
-          </div>
-          <div className={styles.navActions}>
-            <Link href="/parent" className="btn btn-outline">Parent Portal</Link>
-            <Link href="/trial" className="btn btn-primary">Book a Trial</Link>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       {/* Hero Section */}
       <section className={styles.hero}>

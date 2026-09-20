@@ -4,46 +4,7 @@
   min-height: 100vh;
 }
 
-/* Navigation */
-.nav {
-  background-color: rgba(253, 252, 251, 0.8);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
 
-.navContainer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  height: 90px;
-}
-
-.logo {
-  font-family: var(--font-serif);
-  font-size: var(--text-xl);
-  font-weight: 600;
-  color: var(--color-gray-900);
-}
-
-.navLinks {
-  display: flex;
-  gap: var(--spacing-10);
-  font-weight: 500;
-  font-size: 0.95rem;
-  color: var(--color-gray-600);
-}
-
-.navLinks a:hover {
-  color: var(--color-gray-900);
-}
-
-.navActions {
-  display: flex;
-  gap: var(--spacing-4);
-}
 
 /* Hero Section */
 .hero {
@@ -259,10 +220,6 @@
   
   .heroContent {
     align-items: center;
-  }
-  
-  .navLinks, .navActions {
-    display: none;
   }
   
   .heroVisual {
