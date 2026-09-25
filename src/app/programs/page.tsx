@@ -1,5 +1,6 @@
 import Link from "next/link";
 import styles from "./programs.module.css";
+import { BookOpen, Compass, Award, Mic, Video, Hand, Check } from "lucide-react";
 
 export default function Programs() {
   return (
@@ -54,7 +55,7 @@ export default function Programs() {
             {/* Beginner */}
             <div className={styles.levelCard}>
               <div className={styles.levelHeader}>
-                <div className={styles.levelIcon}>🌱</div>
+                <div className={styles.levelIcon}><BookOpen size={22} color="var(--color-primary)" /></div>
                 <h3>Level 1: Foundation (Beginner)</h3>
               </div>
               <p className={styles.levelDesc}>Designed for children with little to no exposure. We focus on building ear-training, basic phonetics, and essential vocabulary.</p>
@@ -62,11 +63,11 @@ export default function Programs() {
               <div className={styles.milestones}>
                 <h4>Key Milestones:</h4>
                 <ul>
-                  <li><span className={styles.check}>✓</span> Proper pronunciation of the alphabet and tones.</li>
-                  <li><span className={styles.check}>✓</span> Basic greetings and introducing oneself.</li>
-                  <li><span className={styles.check}>✓</span> Identifying immediate family members.</li>
-                  <li><span className={styles.check}>✓</span> Numbers 1-20 and basic colors.</li>
-                  <li><span className={styles.check}>✓</span> Understanding simple classroom commands.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Proper pronunciation of the alphabet and tones.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Basic greetings and introducing oneself.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Identifying immediate family members.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Numbers 1-20 and basic colors.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Understanding simple classroom commands.</li>
                 </ul>
               </div>
             </div>
@@ -74,7 +75,7 @@ export default function Programs() {
             {/* Intermediate */}
             <div className={styles.levelCard}>
               <div className={styles.levelHeader}>
-                <div className={styles.levelIcon}>🌿</div>
+                <div className={styles.levelIcon}><Compass size={22} color="var(--color-primary)" /></div>
                 <h3>Level 2: Conversational (Intermediate)</h3>
               </div>
               <p className={styles.levelDesc}>For children who understand basics but struggle to speak. We shift focus to sentence construction, storytelling, and active dialogue.</p>
@@ -82,11 +83,11 @@ export default function Programs() {
               <div className={styles.milestones}>
                 <h4>Key Milestones:</h4>
                 <ul>
-                  <li><span className={styles.check}>✓</span> Forming complete present and past tense sentences.</li>
-                  <li><span className={styles.check}>✓</span> Describing daily routines and feelings.</li>
-                  <li><span className={styles.check}>✓</span> Engaging in a 5-minute continuous conversation.</li>
-                  <li><span className={styles.check}>✓</span> Retelling simple cultural folktales.</li>
-                  <li><span className={styles.check}>✓</span> Asking and answering complex questions.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Forming complete present and past tense sentences.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Describing daily routines and feelings.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Engaging in a 5-minute continuous conversation.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Retelling simple cultural folktales.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Asking and answering complex questions.</li>
                 </ul>
               </div>
             </div>
@@ -94,7 +95,7 @@ export default function Programs() {
             {/* Advanced */}
             <div className={styles.levelCard}>
               <div className={styles.levelHeader}>
-                <div className={styles.levelIcon}>🌳</div>
+                <div className={styles.levelIcon}><Award size={22} color="var(--color-primary)" /></div>
                 <h3>Level 3: Immersion (Advanced)</h3>
               </div>
               <p className={styles.levelDesc}>For fluent speakers refining their skills. Focuses on deep cultural context, reading, writing, and idiomatic expressions.</p>
@@ -102,11 +103,11 @@ export default function Programs() {
               <div className={styles.milestones}>
                 <h4>Key Milestones:</h4>
                 <ul>
-                  <li><span className={styles.check}>✓</span> Reading short stories and writing personal essays.</li>
-                  <li><span className={styles.check}>✓</span> Understanding and using traditional proverbs.</li>
-                  <li><span className={styles.check}>✓</span> Discussing history, geography, and traditions.</li>
-                  <li><span className={styles.check}>✓</span> Fluid navigation of tonal complexities.</li>
-                  <li><span className={styles.check}>✓</span> Confident public speaking in the target language.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Reading short stories and writing personal essays.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Understanding and using traditional proverbs.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Discussing history, geography, and traditions.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Fluid navigation of tonal complexities.</li>
+                  <li><Check size={14} color="var(--color-primary)" style={{ display: "inline", verticalAlign: "middle", marginRight: "6px" }} /> Confident public speaking in the target language.</li>
                 </ul>
               </div>
             </div>
@@ -169,9 +170,9 @@ export default function Programs() {
                   </div>
                 </div>
                 <div className={styles.mockupControls}>
-                  <div className={styles.controlIcon}>🎤</div>
-                  <div className={styles.controlIcon}>📷</div>
-                  <div className={styles.controlIcon}>✋</div>
+                  <div className={styles.controlIcon}><Mic size={16} /></div>
+                  <div className={styles.controlIcon}><Video size={16} /></div>
+                  <div className={styles.controlIcon}><Hand size={16} /></div>
                   <div className={styles.controlEnd}>Leave</div>
                 </div>
               </div>

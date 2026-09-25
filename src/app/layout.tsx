@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Lora } from "next/font/google";
 import "./globals.css";
+import { AppProvider } from "@/context/AppContext";
+import LiveMeetingModal from "@/components/LiveMeetingModal";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -20,7 +22,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${inter.variable} ${lora.variable}`}>
-      <body>{children}</body>
+      <body>
+        <AppProvider>
+          {children}
+          <LiveMeetingModal />
+        </AppProvider>
+      </body>
     </html>
   );
 }
+

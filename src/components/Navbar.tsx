@@ -17,10 +17,13 @@ export default function Navbar() {
           <div className={styles.navLinks}>
             <Link href="/languages" onClick={() => setIsOpen(false)}>Languages</Link>
             <Link href="/programs" onClick={() => setIsOpen(false)}>Programs</Link>
+            <Link href="/student" onClick={() => setIsOpen(false)} style={{ color: "var(--color-primary)", fontWeight: 600 }}>Student Portal</Link>
+            <Link href="/staff" onClick={() => setIsOpen(false)} style={{ color: "#166534", fontWeight: 600 }}>Staff Portal</Link>
             <Link href="/pricing" onClick={() => setIsOpen(false)}>Pricing</Link>
           </div>
           <div className={styles.navActions}>
             <Link href="/parent" className="btn btn-outline" onClick={() => setIsOpen(false)}>Parent Portal</Link>
+            <Link href="/login" className="btn btn-secondary" onClick={() => setIsOpen(false)} style={{ padding: "8px 16px" }}>Login</Link>
             <Link href="/trial" className="btn btn-primary" onClick={() => setIsOpen(false)}>Book a Trial</Link>
           </div>
         </div>

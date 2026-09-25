@@ -27,9 +27,11 @@ export default function ParentSidebar() {
         
         <nav className={styles.nav}>
           <Link href="/parent" className={styles.navItem} onClick={() => setIsOpen(false)}>Overview</Link>
-          <Link href="/parent/children" className={styles.navItem} onClick={() => setIsOpen(false)}>My Children</Link>
-          <Link href="/parent/schedule" className={styles.navItem} onClick={() => setIsOpen(false)}>Classes</Link>
-          <Link href="/parent/billing" className={styles.navItem} onClick={() => setIsOpen(false)}>Billing</Link>
+          <Link href="/parent/children" className={styles.navItem} onClick={() => setIsOpen(false)}>My Children & Grades</Link>
+          <Link href="/parent/schedule" className={styles.navItem} onClick={() => setIsOpen(false)}>Classes & Live Links</Link>
+          <Link href="/parent/billing" className={styles.navItem} onClick={() => setIsOpen(false)}>Pay Online & Billing</Link>
+          <Link href="/student" className={styles.navItem} onClick={() => setIsOpen(false)} style={{ color: "var(--color-primary)", fontWeight: 600 }}>Student Portal</Link>
+          <Link href="/staff" className={styles.navItem} onClick={() => setIsOpen(false)} style={{ color: "#166534", fontWeight: 600 }}>Staff Portal</Link>
           <Link href="/" className={styles.navItem} style={{ marginTop: "auto", color: "var(--color-gray-500)" }}>← Back to Main Site</Link>
         </nav>
         

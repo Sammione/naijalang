@@ -1,6 +1,7 @@
 import styles from "./page.module.css";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
+import { GraduationCap, BookOpen, Globe } from "lucide-react";
 
 export default function Home() {
   return (
@@ -49,17 +50,23 @@ export default function Home() {
       <section className={styles.features}>
         <div className={`container ${styles.featuresContainer}`}>
           <div className="card-floating" style={{ padding: 'var(--spacing-8)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <div className={styles.featureIcon}>👩🏾‍🏫</div>
+            <div className={styles.featureIcon}>
+              <GraduationCap size={32} color="var(--color-primary)" />
+            </div>
             <h3 className="text-xl">Expert Teachers</h3>
             <p className="text-gray-600">Live, interactive sessions with vetted, experienced native speakers who understand diaspora children.</p>
           </div>
           <div className="card-floating" style={{ padding: 'var(--spacing-8)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <div className={styles.featureIcon}>📚</div>
+            <div className={styles.featureIcon}>
+              <BookOpen size={32} color="var(--color-primary)" />
+            </div>
             <h3 className="text-xl">Structured Curriculum</h3>
             <p className="text-gray-600">Age-appropriate learning milestones designed for lasting retention, moving beyond basic vocabulary.</p>
           </div>
           <div className="card-floating" style={{ padding: 'var(--spacing-8)', display: 'flex', flexDirection: 'column', gap: 'var(--spacing-4)' }}>
-            <div className={styles.featureIcon}>🌍</div>
+            <div className={styles.featureIcon}>
+              <Globe size={32} color="var(--color-primary)" />
+            </div>
             <h3 className="text-xl">Cultural Connection</h3>
             <p className="text-gray-600">Go beyond words. Learn through folktales, songs, traditions, and rich Nigerian history.</p>
           </div>
