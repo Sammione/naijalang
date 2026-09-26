@@ -5,7 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/context/AppContext";
-import { GraduationCap, Users, User, ArrowRight, ShieldCheck, Sparkles, ShieldAlert } from "lucide-react";
+import { GraduationCap, Users, User, ArrowRight, ShieldCheck, Sparkles, ShieldAlert, Eye, EyeOff } from "lucide-react";
 
 export default function Login() {
   const router = useRouter();
@@ -18,9 +18,18 @@ export default function Login() {
   const [role, setRole] = useState<"student" | "teacher" | "parent" | "admin">("student");
   const [email, setEmail] = useState(firstStudent?.email || "student@naijalang.com");
   const [password, setPassword] = useState("••••••••••••");
+  const [showPassword, setShowPassword] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const currentTypedUser = 
+    role === "student" ? (db.students.find(s => s.email.toLowerCase() === email.trim().toLowerCase()) || (email === "" ? firstStudent : null)) :
+    role === "teacher" ? (db.teachers.find(t => t.email.toLowerCase() === email.trim().toLowerCase()) || (email === "" ? firstTeacher : null)) :
+    role === "parent" ? (db.parents.find(p => p.email.toLowerCase() === email.trim().toLowerCase()) || (email === "" ? firstParent : null)) :
+    (db.admins.find(a => a.email.toLowerCase() === email.trim().toLowerCase()) || (email === "" ? firstAdmin : null));
 
   const handleRoleSelect = (r: "student" | "teacher" | "parent" | "admin") => {
     setRole(r);
+    setErrorMessage(null);
     if (r === "student") {
       setEmail(firstStudent?.email || "student@naijalang.com");
     } else if (r === "teacher") {
@@ -44,19 +53,52 @@ export default function Login() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
+    const cleanEmail = email.trim().toLowerCase();
+    let matchedUser: any = null;
+    let targetRoute = "/";
+
     if (role === "student") {
-      switchUser("student", firstStudent?.id || "student-default");
-      router.push("/student");
+      matchedUser = db.students.find(s => s.email.toLowerCase() === cleanEmail) || (cleanEmail === "" ? firstStudent : null);
+      targetRoute = "/student";
     } else if (role === "teacher") {
-      switchUser("teacher", firstTeacher?.id || "teacher-default");
-      router.push("/staff");
+      matchedUser = db.teachers.find(t => t.email.toLowerCase() === cleanEmail) || (cleanEmail === "" ? firstTeacher : null);
+      targetRoute = "/staff";
     } else if (role === "parent") {
-      switchUser("parent", firstParent?.id || "parent-default");
-      router.push("/parent");
+      matchedUser = db.parents.find(p => p.email.toLowerCase() === cleanEmail) || (cleanEmail === "" ? firstParent : null);
+      targetRoute = "/parent";
     } else {
-      switchUser("admin", firstAdmin?.id || "admin-ngozi");
-      router.push("/admin");
+      matchedUser = db.admins.find(a => a.email.toLowerCase() === cleanEmail) || (cleanEmail === "" ? firstAdmin : null);
+      targetRoute = "/admin";
     }
+
+    if (!matchedUser) {
+      const inOtherRole = 
+        (role !== "student" && db.students.some(s => s.email.toLowerCase() === cleanEmail)) ? "Student" :
+        (role !== "teacher" && db.teachers.some(t => t.email.toLowerCase() === cleanEmail)) ? "Educator" :
+        (role !== "parent" && db.parents.some(p => p.email.toLowerCase() === cleanEmail)) ? "Parent" :
+        (role !== "admin" && db.admins.some(a => a.email.toLowerCase() === cleanEmail)) ? "Administrator" : null;
+
+      if (inOtherRole) {
+        setErrorMessage(`This email is registered under the "${inOtherRole}" portal. Please switch the role tab above to sign in.`);
+        return;
+      }
+
+      setErrorMessage(`No ${role} account found matching "${email}". Please verify the email or contact your Administrator.`);
+      return;
+    }
+
+    // Password validation
+    if (matchedUser.password && password !== "••••••••••••") {
+      if (matchedUser.password !== password) {
+        setErrorMessage("Incorrect password. Please verify the credentials provided by your Administrator.");
+        return;
+      }
+    }
+
+    switchUser(role, matchedUser.id);
+    router.push(targetRoute);
   };
 
   return (
@@ -197,18 +239,42 @@ export default function Login() {
           alignItems: "center"
         }}>
           <div>
-            <div style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-600)" }}>Active Profile Preview:</div>
+            <div style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-600)" }}>
+              {currentTypedUser ? "Verified Account:" : "Active Profile Target:"}
+            </div>
             <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--color-gray-900)" }}>
-              {role === "student" && (firstStudent ? `${firstStudent.name} (Learner)` : "Student Portal")}
-              {role === "teacher" && (firstTeacher ? `${firstTeacher.name} (Faculty)` : "Faculty Educator Desk")}
-              {role === "parent" && (firstParent ? `${firstParent.name} (Parent/Guardian)` : "Parent & Guardian Portal")}
-              {role === "admin" && (firstAdmin ? `${firstAdmin.name} (Director of Academics)` : "Super Admin Operations")}
+              {currentTypedUser ? (
+                <span>{currentTypedUser.name} <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "#64748b" }}>({role})</span></span>
+              ) : (
+                <span>Manual Sign-in <span style={{ fontSize: "0.8rem", fontWeight: 500, color: "#64748b" }}>({role})</span></span>
+              )}
             </div>
           </div>
-          <span style={{ fontSize: "0.75rem", fontWeight: 600, color: "#16a34a", display: "flex", alignItems: "center", gap: "4px" }}>
-            <ShieldCheck size={14} /> Ready
+          <span style={{ fontSize: "0.75rem", fontWeight: 600, color: currentTypedUser ? "#16a34a" : "#f59e0b", display: "flex", alignItems: "center", gap: "4px" }}>
+            <ShieldCheck size={14} /> {currentTypedUser ? "Ready" : "Pending"}
           </span>
         </div>
+
+        {errorMessage && (
+          <div style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "10px",
+            padding: "12px 14px",
+            backgroundColor: "#fef2f2",
+            border: "1px solid #fecaca",
+            borderRadius: "var(--radius-md)",
+            color: "#991b1b",
+            fontSize: "0.85rem",
+            lineHeight: 1.4
+          }}>
+            <ShieldAlert size={18} style={{ flexShrink: 0, marginTop: "2px" }} />
+            <div>
+              <strong style={{ display: "block", marginBottom: "2px" }}>Access Denied</strong>
+              {errorMessage}
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
@@ -225,14 +291,33 @@ export default function Login() {
 
           <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
             <label className="font-medium text-sm text-gray-700">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
-              style={{ padding: "12px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-gray-300)" }}
-            />
+            <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                style={{ width: "100%", padding: "12px 42px 12px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--color-gray-300)" }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: "absolute",
+                  right: "12px",
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "var(--color-gray-500)",
+                  display: "flex",
+                  alignItems: "center"
+                }}
+                title={showPassword ? "Hide password" : "Show password"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button

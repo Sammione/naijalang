@@ -6,6 +6,7 @@ export const initialDatabase: HubDatabase = {
       id: "admin-ngozi",
       name: "Dr. Ngozi Balogun",
       email: "admin@naijalang.com",
+      password: "admin2026",
       role: "admin",
       title: "Director of Academics & Hub Operations",
       department: "Academic Leadership & Operations",

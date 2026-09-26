@@ -4,6 +4,7 @@ export interface AdminUser {
   id: string;
   name: string;
   email: string;
+  password?: string;
   role: "admin";
   title: string;
   department: string;
@@ -15,6 +16,7 @@ export interface TeacherUser {
   id: string;
   name: string;
   email: string;
+  password?: string;
   phone: string;
   role: "teacher";
   title: string;
@@ -32,6 +34,7 @@ export interface ParentUser {
   id: string;
   name: string;
   email: string;
+  password?: string;
   phone: string;
   role: "parent";
   childrenIds: string[];
@@ -54,6 +57,7 @@ export interface StudentUser {
   parentId: string;
   name: string;
   email: string;
+  password?: string;
   age: number;
   role: "student";
   enrolledLanguage: string;

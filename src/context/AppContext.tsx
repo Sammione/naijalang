@@ -84,6 +84,7 @@ interface AppContextType {
   adminCreateTeacher: (newTeacher: Omit<TeacherUser, "id">) => void;
   adminCreateParent: (newParent: Omit<ParentUser, "id">) => void;
   adminUpdateStudentStatus: (studentId: string, updates: Partial<StudentUser>) => void;
+  adminResetPassword: (userId: string, role: UserRole, newPassword: string) => void;
 
   // Reset database
   resetToDefaultData: () => void;
@@ -665,6 +666,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     saveDb({ ...db, students: updatedStudents });
   };
 
+  // Admin Resets User Password
+  const adminResetPassword = (userId: string, role: UserRole, newPassword: string) => {
+    if (role === "student") {
+      const updatedStudents = db.students.map((s) => s.id === userId ? { ...s, password: newPassword } : s);
+      saveDb({ ...db, students: updatedStudents });
+    } else if (role === "teacher") {
+      const updatedTeachers = db.teachers.map((t) => t.id === userId ? { ...t, password: newPassword } : t);
+      saveDb({ ...db, teachers: updatedTeachers });
+    } else if (role === "parent") {
+      const updatedParents = db.parents.map((p) => p.id === userId ? { ...p, password: newPassword } : p);
+      saveDb({ ...db, parents: updatedParents });
+    } else if (role === "admin") {
+      const updatedAdmins = db.admins.map((a) => a.id === userId ? { ...a, password: newPassword } : a);
+      saveDb({ ...db, admins: updatedAdmins });
+    }
+  };
+
   // Reset to default
   const resetToDefaultData = () => {
     saveDb(initialDatabase);
@@ -711,6 +729,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         adminCreateTeacher,
         adminCreateParent,
         adminUpdateStudentStatus,
+        adminResetPassword,
         resetToDefaultData
       }}
     >
