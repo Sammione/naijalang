@@ -46,6 +46,7 @@ export interface Badge {
   name: string;
   icon: string;
   dateEarned: string;
+  description?: string;
 }
 
 export interface StudentUser {

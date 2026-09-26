@@ -6,479 +6,404 @@ import Image from "next/image";
 import styles from "./staff.module.css";
 import { useApp, ScheduledClass, Assignment } from "@/context/AppContext";
 import GradeAssignmentModal from "@/components/GradeAssignmentModal";
+import AuthGuard from "@/components/AuthGuard";
 import { 
   Video, 
   Calendar, 
   BookOpen, 
-  Award, 
-  FileCheck, 
-  CheckCircle, 
-  Clock, 
-  Star, 
   Users, 
   Check, 
-  Edit3, 
   FileText, 
   Mic, 
-  Briefcase, 
-  GraduationCap,
-  Sparkles,
-  ArrowRight
+  GraduationCap, 
+  Sparkles, 
+  Clock, 
+  Award,
+  ArrowRight,
+  ExternalLink,
+  ShieldCheck,
+  CheckCircle
 } from "lucide-react";
 
 export default function StaffPortal() {
-  const { staff, classes, assignments, student, openMeetingLauncher } = useApp();
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "graded">("all");
+  const { staff, roleClasses, roleAssignments, roleStudents, openMeetingLauncher } = useApp();
+  
+  type StaffView = "classes" | "grading" | "students" | "curriculum";
+  const [activeView, setActiveView] = useState<StaffView>("classes");
+  const [gradingFilter, setGradingFilter] = useState<"all" | "pending" | "graded">("pending");
   const [selectedAssignmentForGrading, setSelectedAssignmentForGrading] = useState<Assignment | null>(null);
 
-  const filteredAssignments = assignments.filter((asg) => {
-    if (activeTab === "all") return true;
-    if (activeTab === "pending") return asg.status === "submitted" || asg.status === "pending";
-    if (activeTab === "graded") return asg.status === "graded";
+  // Educator's pending grading count
+  const pendingGradingCount = roleAssignments.filter(a => a.status === "submitted").length;
+  
+  // Next upcoming class for this teacher
+  const nextClass = roleClasses.find(c => c.status === "live") || roleClasses[0];
+
+  // Filtered assignments for grading view
+  const filteredAssignments = roleAssignments.filter((asg) => {
+    if (gradingFilter === "all") return true;
+    if (gradingFilter === "pending") return asg.status === "submitted" || asg.status === "pending";
+    if (gradingFilter === "graded") return asg.status === "graded";
     return true;
   });
 
-  const nextClass = classes[0];
-
   return (
-    <div className={styles.container}>
-      {/* Top Header */}
-      <nav className={styles.topNav}>
-        <div className={`container ${styles.navInner}`}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Link href="/" className={styles.logo} style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
-              <Image src="/logo.png" alt="Logo" width={38} height={38} style={{ borderRadius: "50%", border: "2px solid #e0b034" }} />
-              <span>Nija Language Hub</span>
-            </Link>
-            <span className={styles.badgeRole}>Staff & Educator Portal</span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span style={{ fontSize: "0.85rem", color: "#86efac", fontWeight: 600 }}>{staff.name}</span>
-            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "#1f7a5a", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
-              {staff.avatarLetters}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content Area */}
-      <main className={styles.mainContent}>
-        <div className="container">
-          {/* Staff Hero Profile */}
-          <div className={styles.heroProfile}>
-            <div className={styles.profileInfo}>
-              <div className={styles.avatar}>{staff.avatarLetters}</div>
-              <div>
-                <span style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#86efac", fontWeight: 700 }}>
-                  Certified Heritage Educator
-                </span>
-                <h1 className={styles.greetingTitle}>{staff.name}</h1>
-                <p style={{ color: "#d1d5db", margin: 0, fontSize: "0.95rem" }}>
-                  {staff.title} • {staff.languagesTaught.join(", ")}
-                </p>
-                <p style={{ color: "#9ca3af", fontSize: "0.85rem", marginTop: "4px" }}>
-                  Email: {staff.email} • WhatsApp: {staff.phone}
-                </p>
-              </div>
-            </div>
-
-            {/* Teaching Metrics */}
-            <div className={styles.statsBar}>
-              <div className={styles.statItem}>
-                <div className={styles.statVal}>
-                  <Users size={20} color="#86efac" /> {staff.assignedStudentIds ? staff.assignedStudentIds.length : (staff.totalStudents || 0)}
-                </div>
-                <div className={styles.statLabel}>Active Learners</div>
-              </div>
-              <div style={{ width: "1px", backgroundColor: "rgba(255,255,255,0.15)" }}></div>
-              <div className={styles.statItem}>
-                <div className={styles.statVal}>
-                  <BookOpen size={20} color="#fef08a" /> {classes.filter(c => c.status === "completed").length}
-                </div>
-                <div className={styles.statLabel}>Classes Taught</div>
-              </div>
-              <div style={{ width: "1px", backgroundColor: "rgba(255,255,255,0.15)" }}></div>
-              <div className={styles.statItem}>
-                <div className={styles.statVal}>
-                  <Star size={20} color="#fbbf24" fill="#fbbf24" /> {staff.rating || 5.0}
-                </div>
-                <div className={styles.statLabel}>Academic Rating</div>
-              </div>
-            </div>
-          </div>
-
-          {/* Grid Layout */}
-          <div className={styles.dashboardGrid}>
-            {/* Left: Schedule & Grading Desk */}
+    <AuthGuard requiredRole="teacher" portalName="Educator & Faculty Desk">
+      <div className={styles.appShell}>
+      {/* 1. LEFT EDUCATOR SIDEBAR */}
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarHeader}>
+          <Link href="/" className={styles.brandLink}>
+            <Image src="/logo.png" alt="Logo" width={38} height={38} className={styles.brandLogo} />
             <div>
-              {/* Host Live Class Banner */}
+              <div className={styles.brandName}>Nija Language Hub</div>
+              <div className={styles.brandSub}>Faculty & Educator Desk</div>
+            </div>
+          </Link>
+          <span className={styles.roleBadge}>Certified Native Faculty</span>
+        </div>
+
+        <nav className={styles.sidebarNav}>
+          <div className={styles.navSectionLabel}>Instructional Desk</div>
+
+          <button
+            onClick={() => setActiveView("classes")}
+            className={`${styles.navButton} ${activeView === "classes" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <Video size={18} />
+              <span>Today's Classes</span>
+            </div>
+            <span className={styles.navCount}>{roleClasses.length}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveView("grading")}
+            className={`${styles.navButton} ${activeView === "grading" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <BookOpen size={18} />
+              <span>Grading Queue</span>
+            </div>
+            {pendingGradingCount > 0 ? (
+              <span className={styles.navCount} style={{ background: "#f59e0b", color: "#78350f" }}>
+                {pendingGradingCount} Pending
+              </span>
+            ) : (
+              <span className={styles.navCount}>{roleAssignments.length}</span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveView("students")}
+            className={`${styles.navButton} ${activeView === "students" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <Users size={18} />
+              <span>My Assigned Students</span>
+            </div>
+            <span className={styles.navCount}>{roleStudents.length}</span>
+          </button>
+
+          <div className={styles.navSectionLabel}>Pedagogy & Tools</div>
+
+          <button
+            onClick={() => setActiveView("curriculum")}
+            className={`${styles.navButton} ${activeView === "curriculum" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <GraduationCap size={18} />
+              <span>Heritage Curriculum</span>
+            </div>
+          </button>
+        </nav>
+
+        {/* Sidebar Footer Profile */}
+        <div className={styles.sidebarFooter}>
+          <div className={styles.teacherProfilePill}>
+            <div className={styles.teacherAvatar}>{staff.avatarLetters}</div>
+            <div>
+              <div className={styles.teacherName}>{staff.name}</div>
+              <div className={styles.teacherTitle}>{staff.title}</div>
+            </div>
+          </div>
+          <Link href="/" style={{ color: "#a7f3d0", fontSize: "0.75rem", textDecoration: "none", display: "inline-flex", alignItems: "center", gap: "6px" }}>
+            ← Back to Main Site
+          </Link>
+        </div>
+      </aside>
+
+      {/* 2. MAIN VIEWPORT */}
+      <div className={styles.mainViewport}>
+        {/* Top Control Bar */}
+        <header className={styles.topBar}>
+          <div>
+            <h2 className={styles.topBarGreeting}>Welcome, {staff.name}</h2>
+            <span style={{ fontSize: "0.78rem", color: "#64748b" }}>
+              Languages Taught: <strong>{staff.languagesTaught.join(", ")}</strong> • Rating: <strong style={{ color: "#ca8a04" }}>{staff.rating} ★</strong>
+            </span>
+          </div>
+
+          <div>
+            {nextClass ? (
+              <button onClick={() => openMeetingLauncher(nextClass)} className={styles.launchButton}>
+                <Video size={16} /> Enter Live Classroom
+              </button>
+            ) : (
+              <span style={{ fontSize: "0.8rem", color: "#64748b", background: "#f1f5f9", padding: "6px 12px", borderRadius: "8px" }}>
+                No active session right now
+              </span>
+            )}
+          </div>
+        </header>
+
+        {/* Page Content */}
+        <main className={styles.pageBody}>
+          {/* VIEW: CLASSES */}
+          {activeView === "classes" && (
+            <div>
+              {/* Next Live Class Hero */}
               {nextClass ? (
-                <div className={styles.hostClassCard}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "16px", flexWrap: "wrap", gap: "12px" }}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                        <span style={{
-                          backgroundColor: "#dcfce7",
-                          color: "#166534",
-                          fontWeight: 700,
-                          fontSize: "0.8rem",
-                          padding: "4px 12px",
-                          borderRadius: "20px",
-                          textTransform: "uppercase"
-                        }}>
-                          Educator Classroom Ready
-                        </span>
-                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-gray-500)" }}>
-                          {nextClass.date} • {nextClass.time}
-                        </span>
-                      </div>
-                      <h2 style={{ fontSize: "1.45rem", fontWeight: 700, color: "var(--color-secondary)", margin: 0 }}>
-                        {nextClass.title}
-                      </h2>
-                      <p style={{ margin: "6px 0 0", color: "var(--color-gray-600)", fontSize: "0.9rem" }}>
-                        Student: <strong>{nextClass.studentName}</strong> ({nextClass.language})
-                      </p>
-                    </div>
-
-                    <button
-                      onClick={() => openMeetingLauncher(nextClass)}
-                      className="btn btn-primary"
-                      style={{
-                        padding: "16px 28px",
-                        fontSize: "1.05rem",
-                        backgroundColor: "#10302a",
-                        boxShadow: "0 8px 24px rgba(16, 48, 42, 0.35)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        borderRadius: "var(--radius-full)"
-                      }}
-                    >
-                      <Video size={20} />
-                      Start Class as Host
-                    </button>
+                <div className={styles.liveHeroCard}>
+                  <div>
+                    <span className={styles.liveHeroTag}>● Next Scheduled Lesson</span>
+                    <h3 className={styles.liveHeroTitle}>{nextClass.title}</h3>
+                    <p className={styles.liveHeroDetails}>
+                      Learner: <strong>{nextClass.studentName}</strong> • Course: <strong>{nextClass.language}</strong>
+                    </p>
+                    <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "#a7f3d0" }}>
+                      Schedule: {nextClass.date} at {nextClass.time} • Platform: {nextClass.platform === "zoom" ? "Zoom Pro" : "Google Meet"}
+                    </p>
                   </div>
 
-                  <div style={{
-                    backgroundColor: "var(--color-gray-50)",
-                    padding: "14px 16px",
-                    borderRadius: "var(--radius-md)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                    gap: "10px"
-                  }}>
-                    <div style={{ fontSize: "0.85rem", color: "var(--color-gray-700)" }}>
-                      <strong>Platform:</strong> {nextClass.platform === "google-meet" ? "Google Meet" : "Zoom"} • Room ID: <code>{nextClass.meetingId}</code>
-                    </div>
-                    <button
-                      onClick={() => openMeetingLauncher(nextClass)}
-                      style={{ background: "none", border: "none", color: "var(--color-primary)", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
-                    >
-                      Launch Camera Check & Room <ArrowRight size={14} />
-                    </button>
-                  </div>
+                  <button onClick={() => openMeetingLauncher(nextClass)} className={styles.launchButton} style={{ background: "#ffffff", color: "#064e3b" }}>
+                    <Video size={18} color="#064e3b" /> Launch Meeting ({nextClass.platform === "zoom" ? "Zoom" : "Meet"})
+                  </button>
                 </div>
               ) : (
-                <div className="card-floating" style={{ padding: "32px", textAlign: "center", backgroundColor: "white", marginBottom: "24px" }}>
-                  <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "#ecfdf5", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                    <Video size={28} color="#059669" />
-                  </div>
-                  <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--color-secondary)", marginBottom: "6px" }}>
-                    No Live Teaching Sessions Scheduled Today
-                  </h3>
-                  <p style={{ color: "var(--color-gray-600)", fontSize: "0.9rem", maxWidth: "450px", margin: "0 auto" }}>
-                    Upcoming classes assigned to your educator roster will appear here with 1-click Google Meet and Zoom classroom launcher.
+                <div className={styles.emptyCard} style={{ marginBottom: "28px" }}>
+                  <div className={styles.emptyIcon}>🗓️</div>
+                  <h3 className={styles.emptyTitle}>No Live Sessions Scheduled Today</h3>
+                  <p className={styles.emptyDesc}>
+                    When admin schedules classes or learners book lessons with you, they will appear here with instant launch credentials.
                   </p>
                 </div>
               )}
 
-              {/* Assignment & Grading Desk */}
-              <div style={{ marginTop: "32px" }}>
-                <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>
-                    <Award size={22} color="var(--color-primary)" />
-                    Student Assignments & Grading Desk
-                  </h2>
-                  <span style={{ fontSize: "0.85rem", color: "var(--color-gray-500)" }}>
-                    Evaluate student submissions and publish feedback
-                  </span>
-                </div>
-
-                {/* Filter Tabs */}
-                <div className={styles.tabList}>
-                  <button
-                    className={`${styles.tabBtn} ${activeTab === "all" ? styles.activeTabBtn : ""}`}
-                    onClick={() => setActiveTab("all")}
-                  >
-                    All Submissions ({assignments.length})
-                  </button>
-                  <button
-                    className={`${styles.tabBtn} ${activeTab === "pending" ? styles.activeTabBtn : ""}`}
-                    onClick={() => setActiveTab("pending")}
-                  >
-                    Needs Grading ({assignments.filter((a) => a.status === "submitted").length})
-                  </button>
-                  <button
-                    className={`${styles.tabBtn} ${activeTab === "graded" ? styles.activeTabBtn : ""}`}
-                    onClick={() => setActiveTab("graded")}
-                  >
-                    Graded ({assignments.filter((a) => a.status === "graded").length})
-                  </button>
-                </div>
-
-                {/* Assignments List */}
-                {filteredAssignments.length === 0 ? (
-                  <div className="card-floating" style={{ padding: "40px", textAlign: "center", backgroundColor: "white" }}>
-                    <div style={{ width: "52px", height: "52px", borderRadius: "50%", backgroundColor: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                      <CheckCircle size={26} color="#16a34a" />
-                    </div>
-                    <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--color-secondary)", marginBottom: "4px" }}>
-                      {activeTab === "pending" ? "Grading Queue Clean" : "No Submissions Found"}
-                    </h3>
-                    <p style={{ color: "var(--color-gray-600)", fontSize: "0.85rem", margin: 0 }}>
-                      {activeTab === "pending" 
-                        ? "All student submissions have been evaluated and graded!" 
-                        : "Student assignment submissions will appear here for grading and audio assessment."}
-                    </p>
-                  </div>
+              {/* Master Class Schedule Table */}
+              <div style={{ background: "white", borderRadius: "14px", border: "1px solid #e2e8f0", padding: "24px" }}>
+                <h3 style={{ margin: "0 0 16px", fontSize: "1.05rem", fontWeight: 700 }}>Upcoming Teaching Schedule</h3>
+                {roleClasses.length === 0 ? (
+                  <p style={{ color: "#64748b", fontSize: "0.88rem", margin: 0 }}>No classes registered on your schedule.</p>
                 ) : (
-                  filteredAssignments.map((asg) => (
-                    <div key={asg.id} className={styles.cardFloating}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                    {roleClasses.map((cls) => (
+                      <div key={cls.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 18px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #f1f5f9" }}>
                         <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)", textTransform: "uppercase" }}>
-                              {asg.subject}
-                            </span>
-                            <span style={{ color: "var(--color-gray-300)" }}>•</span>
-                            <span style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>
-                              Student: <strong>{student.name}</strong>
-                            </span>
-                          </div>
-                          <h3 style={{ fontSize: "1.15rem", fontWeight: 600, color: "var(--color-secondary)", margin: 0 }}>
-                            {asg.title}
-                          </h3>
+                          <strong style={{ fontSize: "0.92rem", display: "block", color: "#0f172a" }}>{cls.title}</strong>
+                          <span style={{ fontSize: "0.8rem", color: "#64748b" }}>
+                            Student: <strong>{cls.studentName}</strong> • {cls.date} at {cls.time} ({cls.platform === "zoom" ? "Zoom" : "Google Meet"})
+                          </span>
                         </div>
-
-                        <div>
-                          {asg.status === "submitted" && (
-                            <span style={{ backgroundColor: "#fef3c7", color: "#92400e", padding: "4px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700 }}>
-                              Ready for Grading
-                            </span>
-                          )}
-                          {asg.status === "graded" && (
-                            <span style={{ backgroundColor: "#dcfce7", color: "#166534", padding: "4px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700 }}>
-                              Score: {asg.grade?.score}% ({asg.grade?.letter})
-                            </span>
-                          )}
-                          {asg.status === "pending" && (
-                            <span style={{ backgroundColor: "var(--color-gray-100)", color: "var(--color-gray-600)", padding: "4px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 600 }}>
-                              Pending Student Submission
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <p style={{ fontSize: "0.88rem", color: "var(--color-gray-600)", lineHeight: 1.5, marginBottom: "14px" }}>
-                        {asg.instructions}
-                      </p>
-
-                      {/* Student Submission Display */}
-                      {asg.studentSubmission && (
-                        <div style={{
-                          backgroundColor: "#f8fafc",
-                          border: "1px solid #e2e8f0",
-                          borderRadius: "var(--radius-md)",
-                          padding: "14px",
-                          marginBottom: "16px"
-                        }}>
-                          <div style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--color-gray-600)", textTransform: "uppercase", marginBottom: "6px" }}>
-                            Student Submission ({asg.studentSubmission.submittedAt}):
-                          </div>
-                          <p style={{ margin: "0 0 10px", fontSize: "0.9rem", color: "var(--color-gray-800)" }}>
-                            "{asg.studentSubmission.textResponse}"
-                          </p>
-                          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                            {asg.studentSubmission.fileName && (
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", backgroundColor: "white", padding: "4px 10px", borderRadius: "12px", border: "1px solid var(--color-gray-300)", fontSize: "0.75rem" }}>
-                                <FileText size={12} color="var(--color-primary)" />
-                                {asg.studentSubmission.fileName}
-                              </span>
-                            )}
-                            {asg.studentSubmission.hasAudioRecording && (
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", backgroundColor: "#fef3c7", padding: "4px 10px", borderRadius: "12px", border: "1px solid #fde68a", fontSize: "0.75rem", color: "#92400e" }}>
-                                <Mic size={12} />
-                                Voice Recording ({asg.studentSubmission.audioDuration || "0:45"})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Published Feedback */}
-                      {asg.status === "graded" && asg.grade && (
-                        <div style={{
-                          backgroundColor: "#f0fdf4",
-                          border: "1px solid #bbf7d0",
-                          borderRadius: "var(--radius-md)",
-                          padding: "14px",
-                          marginBottom: "16px",
-                          fontSize: "0.85rem"
-                        }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                            <span style={{ fontWeight: 700, color: "#166534" }}>Your Published Assessment:</span>
-                            <span style={{ fontWeight: 800, color: "#15803d" }}>{asg.grade.score}/100 ({asg.grade.letter})</span>
-                          </div>
-                          <p style={{ margin: "2px 0 8px", color: "#166534", fontStyle: "italic" }}>
-                            "{asg.grade.feedback}"
-                          </p>
-                          {asg.grade.badges && (
-                            <div style={{ display: "flex", gap: "6px" }}>
-                              {asg.grade.badges.map((b, i) => (
-                                <span key={i} style={{ backgroundColor: "white", padding: "2px 8px", borderRadius: "10px", fontSize: "0.75rem", color: "#166534", border: "1px solid #86efac" }}>
-                                  {b}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Action buttons */}
-                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => setSelectedAssignmentForGrading(asg)}
-                          className="btn btn-primary"
-                          style={{
-                            padding: "8px 20px",
-                            fontSize: "0.85rem",
-                            backgroundColor: asg.status === "graded" ? "var(--color-secondary)" : "#10302a",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px"
-                          }}
-                        >
-                          <Edit3 size={14} />
-                          {asg.status === "graded" ? "Update Grade / Feedback" : "Grade Submission"}
+                        <button onClick={() => openMeetingLauncher(cls)} className="btn btn-primary" style={{ fontSize: "0.78rem", padding: "6px 14px" }}>
+                          Launch Session
                         </button>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
+          )}
 
-            {/* Right: Class Schedule & Staff Qualifications */}
+          {/* VIEW: GRADING QUEUE */}
+          {activeView === "grading" && (
             <div>
-              {/* Teaching Schedule */}
-              <div className={styles.cardFloating}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <h3 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--color-secondary)", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Calendar size={18} color="var(--color-primary)" />
-                    Teaching Schedule
-                  </h3>
-                  <span style={{ fontSize: "0.75rem", color: "var(--color-gray-500)", fontWeight: 600 }}>
-                    {classes.length} Sessions
-                  </span>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+                <div>
+                  <h2 style={{ fontSize: "1.3rem", fontWeight: 700, margin: 0 }}>Homework & Grading Desk</h2>
+                  <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "#64748b" }}>
+                    Review student text submissions, listen to tone recordings, and issue evaluations.
+                  </p>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {classes.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "24px 12px", color: "var(--color-gray-500)", fontSize: "0.85rem" }}>
-                      <Calendar size={24} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
-                      <p style={{ margin: 0 }}>No teaching sessions assigned to your roster yet.</p>
-                    </div>
-                  ) : (
-                    classes.map((cls) => (
-                      <div
-                        key={cls.id}
-                        style={{
-                          padding: "14px",
-                          backgroundColor: cls.status === "live" ? "#f0fdf4" : "var(--color-gray-50)",
-                          borderRadius: "var(--radius-md)",
-                          border: cls.status === "live" ? "1px solid #86efac" : "1px solid var(--color-gray-200)"
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)" }}>
-                            {cls.date} • {cls.time}
-                          </span>
-                          <span style={{ fontSize: "0.7rem", fontWeight: 700, padding: "2px 8px", borderRadius: "10px", backgroundColor: "#e2e8f0" }}>
-                            {cls.platform === "google-meet" ? "Meet" : "Zoom"}
-                          </span>
-                        </div>
-                        <h4 style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--color-secondary)", margin: "0 0 2px" }}>
-                          {cls.title}
-                        </h4>
-                        <p style={{ fontSize: "0.8rem", color: "var(--color-gray-600)", margin: "0 0 10px" }}>
-                          Learner: <strong>{cls.studentName}</strong>
-                        </p>
-
-                        <button
-                          onClick={() => openMeetingLauncher(cls)}
-                          className="btn btn-outline"
-                          style={{
-                            width: "100%",
-                            padding: "6px 12px",
-                            fontSize: "0.8rem",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: "6px"
-                          }}
-                        >
-                          <Video size={14} />
-                          Launch Classroom
-                        </button>
-                      </div>
-                    ))
-                  )}
+                <div style={{ display: "flex", gap: "8px" }}>
+                  <button onClick={() => setGradingFilter("pending")} className={gradingFilter === "pending" ? "btn btn-primary" : "btn btn-outline"} style={{ fontSize: "0.78rem", padding: "6px 12px" }}>
+                    Pending ({roleAssignments.filter(a => a.status === "submitted").length})
+                  </button>
+                  <button onClick={() => setGradingFilter("graded")} className={gradingFilter === "graded" ? "btn btn-primary" : "btn btn-outline"} style={{ fontSize: "0.78rem", padding: "6px 12px" }}>
+                    Graded ({roleAssignments.filter(a => a.status === "graded").length})
+                  </button>
+                  <button onClick={() => setGradingFilter("all")} className={gradingFilter === "all" ? "btn btn-primary" : "btn btn-outline"} style={{ fontSize: "0.78rem", padding: "6px 12px" }}>
+                    All ({roleAssignments.length})
+                  </button>
                 </div>
               </div>
 
-              {/* Bio & Qualifications */}
-              <div className={styles.cardFloating}>
-                <h3 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--color-secondary)", margin: "0 0 12px", display: "flex", alignItems: "center", gap: "6px" }}>
-                  <GraduationCap size={18} color="var(--color-primary)" />
-                  Educator Profile & Pedagogy
-                </h3>
-                <p style={{ fontSize: "0.85rem", color: "var(--color-gray-700)", lineHeight: 1.5, marginBottom: "16px" }}>
-                  {staff.bio || "Certified native language educator dedicated to heritage fluency."}
-                </p>
+              {filteredAssignments.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>📝</div>
+                  <h3 className={styles.emptyTitle}>No Submissions in this Filter</h3>
+                  <p className={styles.emptyDesc}>
+                    When your assigned learners submit homework worksheets or voice exercises, they will appear in your queue.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {filteredAssignments.map((asg) => {
+                    const student = roleStudents.find(s => s.id === asg.studentId);
 
-                <span style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-500)", display: "block", marginBottom: "8px" }}>
-                  Verified Credentials:
-                </span>
-                <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                  {(staff.qualifications && staff.qualifications.length > 0) ? (
-                    staff.qualifications.map((q, idx) => (
-                      <div key={idx} style={{ display: "flex", alignItems: "flex-start", gap: "6px", fontSize: "0.8rem", color: "var(--color-gray-700)" }}>
-                        <CheckCircle size={14} color="#16a34a" style={{ flexShrink: 0, marginTop: "2px" }} />
-                        <span>{q}</span>
+                    return (
+                      <div key={asg.id} style={{ background: "white", padding: "20px", borderRadius: "14px", border: "1px solid #e2e8f0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "10px" }}>
+                          <div>
+                            <span style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 700, color: "#16a34a" }}>
+                              {asg.subject} • Student: {student?.name || "Assigned Learner"}
+                            </span>
+                            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, margin: "2px 0 4px" }}>{asg.title}</h3>
+                            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Due / Submitted: {asg.dueDate}</span>
+                          </div>
+
+                          <div>
+                            {asg.status === "graded" && asg.grade ? (
+                              <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 12px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 800 }}>
+                                Score: {asg.grade.score}/100 ({asg.grade.letter})
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => setSelectedAssignmentForGrading(asg)}
+                                className="btn btn-primary"
+                                style={{ fontSize: "0.8rem", padding: "8px 16px" }}
+                              >
+                                Grade Submission
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        <p style={{ fontSize: "0.85rem", color: "#334155", margin: "0 0 12px" }}>{asg.instructions}</p>
+
+                        {/* Student Submission Card */}
+                        {asg.studentSubmission && (
+                          <div style={{ background: "#f8fafc", padding: "14px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "12px" }}>
+                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "4px" }}>
+                              Learner Submission ({asg.studentSubmission.submittedAt}):
+                            </div>
+                            <p style={{ margin: "0 0 8px", fontSize: "0.88rem", color: "#0f172a" }}>"{asg.studentSubmission.textResponse}"</p>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              {asg.studentSubmission.fileName && (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "white", padding: "3px 10px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.75rem" }}>
+                                  <FileText size={12} color="#15803d" /> {asg.studentSubmission.fileName}
+                                </span>
+                              )}
+                              {asg.studentSubmission.hasAudioRecording && (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#fef3c7", padding: "3px 10px", borderRadius: "8px", border: "1px solid #fde68a", fontSize: "0.75rem", color: "#92400e" }}>
+                                  <Mic size={12} /> Audio Recording ({asg.studentSubmission.audioDuration})
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Teacher's Graded Remarks */}
+                        {asg.status === "graded" && asg.grade && (
+                          <div style={{ background: "#f0fdf4", padding: "12px 16px", borderRadius: "8px", border: "1px solid #bbf7d0", fontSize: "0.85rem" }}>
+                            <strong style={{ color: "#166534" }}>Your Evaluation Remarks:</strong>
+                            <p style={{ margin: "2px 0 0", fontStyle: "italic", color: "#166534" }}>"{asg.grade.feedback}"</p>
+                          </div>
+                        )}
                       </div>
-                    ))
-                  ) : (
-                    <div style={{ fontSize: "0.8rem", color: "var(--color-gray-500)" }}>
-                      Faculty credentials and language accreditations verified.
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW: MY ASSIGNED STUDENTS */}
+          {activeView === "students" && (
+            <div>
+              <div style={{ marginBottom: "20px" }}>
+                <h2 style={{ fontSize: "1.3rem", fontWeight: 700, margin: 0 }}>My Assigned Learners</h2>
+                <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "#64748b" }}>
+                  Strict privacy enforced: Guardian contact info and financial billing records are kept private.
+                </p>
+              </div>
+
+              {roleStudents.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>👥</div>
+                  <h3 className={styles.emptyTitle}>No Students Assigned Yet</h3>
+                  <p className={styles.emptyDesc}>
+                    When the administrator assigns learners to your language immersion track, their profiles will appear here.
+                  </p>
+                </div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "18px" }}>
+                  {roleStudents.map((st) => (
+                    <div key={st.id} style={{ background: "white", borderRadius: "14px", border: "1px solid #e2e8f0", padding: "20px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "14px" }}>
+                        <div style={{ width: "44px", height: "44px", borderRadius: "50%", background: "#f3e8ff", color: "#9333ea", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>
+                          {st.avatarLetter}
+                        </div>
+                        <div>
+                          <strong style={{ fontSize: "1rem", display: "block" }}>{st.name}</strong>
+                          <span style={{ fontSize: "0.75rem", color: "#64748b" }}>Age {st.age} • {st.level}</span>
+                        </div>
+                      </div>
+
+                      <div style={{ background: "#f8fafc", padding: "10px 14px", borderRadius: "8px", fontSize: "0.82rem", marginBottom: "12px" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                          <span>Attendance:</span>
+                          <strong>{st.attendanceRate}%</strong>
+                        </div>
+                        <div style={{ display: "flex", justifyContent: "space-between" }}>
+                          <span>Language Track:</span>
+                          <strong>{st.enrolledLanguage.split(" ")[0]}</strong>
+                        </div>
+                      </div>
+
+                      <div style={{ fontSize: "0.78rem", color: "#64748b" }}>
+                        Badges Earned: 🏆 {st.badges?.length || 0} ({st.xpPoints} XP)
+                      </div>
                     </div>
-                  )}
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW: HERITAGE CURRICULUM */}
+          {activeView === "curriculum" && (
+            <div style={{ background: "white", padding: "28px", borderRadius: "14px", border: "1px solid #e2e8f0" }}>
+              <h2 style={{ fontSize: "1.3rem", fontWeight: 700, margin: "0 0 16px" }}>Heritage Pedagogy Guidelines</h2>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", fontSize: "0.88rem", color: "#334155" }}>
+                <div style={{ padding: "18px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <h4 style={{ margin: "0 0 8px", color: "#064e3b", fontSize: "1rem" }}>Tonal Articulation Focus</h4>
+                  <p style={{ margin: 0, lineHeight: 1.6 }}>
+                    Ensure diaspora learners master the three foundational pitch registers: High (Acute /), Mid (Unmarked), and Low (Grave \). Pronounce every word in context before drilling isolated vocabulary.
+                  </p>
+                </div>
+                <div style={{ padding: "18px", borderRadius: "10px", background: "#f8fafc", border: "1px solid #e2e8f0" }}>
+                  <h4 style={{ margin: "0 0 8px", color: "#064e3b", fontSize: "1rem" }}>Cultural Affirmations</h4>
+                  <p style={{ margin: 0, lineHeight: 1.6 }}>
+                    Begin every session with traditional morning and afternoon greetings, elder respect phrases, and cultural proverbs that connect diaspora children to their lineage.
+                  </p>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </main>
+          )}
+        </main>
+      </div>
 
-      {/* Grading Modal */}
-      {selectedAssignmentForGrading && (
-        <GradeAssignmentModal
-          assignment={selectedAssignmentForGrading}
-          onClose={() => setSelectedAssignmentForGrading(null)}
-        />
-      )}
-    </div>
+        {/* Grading Modal */}
+        {selectedAssignmentForGrading && (
+          <GradeAssignmentModal
+            assignment={selectedAssignmentForGrading}
+            onClose={() => setSelectedAssignmentForGrading(null)}
+          />
+        )}
+      </div>
+    </AuthGuard>
   );
 }

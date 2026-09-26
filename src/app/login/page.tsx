@@ -32,6 +32,16 @@ export default function Login() {
     }
   };
 
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const req = params.get("required") as "student" | "teacher" | "parent" | "admin" | null;
+      if (req && ["student", "teacher", "parent", "admin"].includes(req)) {
+        handleRoleSelect(req);
+      }
+    }
+  }, [firstParent, firstTeacher, firstStudent, firstAdmin]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (role === "student") {

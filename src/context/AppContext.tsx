@@ -43,10 +43,13 @@ interface AppContextType {
   db: HubDatabase;
   isSupabaseConnected: boolean;
 
-  // Active Session & Role
+  // Active Session & Authentication
+  isAuthenticated: boolean;
+  isAuthLoading: boolean;
   currentRole: UserRole;
   currentUser: AdminUser | TeacherUser | ParentUser | StudentUser;
   switchUser: (role: UserRole, id?: string) => void;
+  loginUser: (role: UserRole, id?: string) => void;
   logout: () => void;
 
   // Role-Isolated Queries
@@ -90,6 +93,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [db, setDb] = useState<HubDatabase>(initialDatabase);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [currentRole, setCurrentRole] = useState<UserRole>("student");
   const [currentUserId, setCurrentUserId] = useState<string>("student-active");
   const [activeMeeting, setActiveMeeting] = useState<ScheduledClass | null>(null);
@@ -99,17 +104,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const storedDb = localStorage.getItem("nlh_database_v2");
+      const storedAuth = localStorage.getItem("nlh_auth_v2");
       const storedRole = localStorage.getItem("nlh_role_v2") as UserRole | null;
       const storedUserId = localStorage.getItem("nlh_userid_v2");
 
       if (storedDb) {
         setDb(JSON.parse(storedDb));
       }
-      if (storedRole) {
+      if (storedAuth === "true" && storedRole) {
+        setIsAuthenticated(true);
         setCurrentRole(storedRole);
-      }
-      if (storedUserId) {
-        setCurrentUserId(storedUserId);
+        if (storedUserId) {
+          setCurrentUserId(storedUserId);
+        }
+      } else {
+        setIsAuthenticated(false);
       }
 
       // If Supabase is configured with real URL and key, fetch live tables
@@ -123,6 +132,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     } catch {
       // Local storage unavailable
+    } finally {
+      setIsAuthLoading(false);
     }
   }, []);
 
@@ -214,9 +225,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const currentUser = getCurrentUser();
 
-  const switchUser = (role: UserRole, id?: string) => {
+  const loginUser = (role: UserRole, id?: string) => {
+    setIsAuthenticated(true);
     setCurrentRole(role);
     try {
+      localStorage.setItem("nlh_auth_v2", "true");
       localStorage.setItem("nlh_role_v2", role);
     } catch {}
 
@@ -233,8 +246,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   };
 
+  const switchUser = (role: UserRole, id?: string) => {
+    loginUser(role, id);
+  };
+
   const logout = () => {
-    switchUser("student", db.students[0]?.id || "student-default");
+    setIsAuthenticated(false);
+    try {
+      localStorage.removeItem("nlh_auth_v2");
+      localStorage.removeItem("nlh_role_v2");
+      localStorage.removeItem("nlh_userid_v2");
+    } catch {}
+    if (typeof window !== "undefined") {
+      window.location.href = "/";
+    }
   };
 
   // ==========================================
@@ -655,9 +680,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       value={{
         db,
         isSupabaseConnected,
+        isAuthenticated,
+        isAuthLoading,
         currentRole,
         currentUser,
         switchUser,
+        loginUser,
         logout,
         roleClasses,
         roleAssignments,

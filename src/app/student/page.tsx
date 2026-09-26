@@ -6,17 +6,18 @@ import Image from "next/image";
 import styles from "./student.module.css";
 import { useApp, ScheduledClass, Assignment } from "@/context/AppContext";
 import SubmitAssignmentModal from "@/components/SubmitAssignmentModal";
+import AuthGuard from "@/components/AuthGuard";
 import { 
   Video, 
   Calendar, 
   BookOpen, 
   Award, 
-  FileCheck, 
   Clock, 
   Flame, 
   Zap, 
   Star, 
   Play, 
+  Volume2,
   ExternalLink, 
   Upload, 
   CheckCircle,
@@ -24,511 +25,738 @@ import {
   Sparkles,
   ArrowRight,
   FileText,
-  Check
+  Check,
+  Headphones,
+  Lock,
+  LogOut
 } from "lucide-react";
 
+interface CulturalPhrase {
+  id: string;
+  lang: "Yoruba" | "Igbo" | "Hausa";
+  phrase: string;
+  phonetic: string;
+  meaning: string;
+  toneTip: string;
+}
+
+const HERITAGE_PHRASES: CulturalPhrase[] = [
+  {
+    id: "yo-1",
+    lang: "Yoruba",
+    phrase: "Ẹ ǹlẹ́ o",
+    phonetic: "Eh-n-leh-oh (Mid-Low-High)",
+    meaning: "Respectful greeting / Hello to an elder or group",
+    toneTip: "The accent on 'ǹ' is low tone (Dò), 'lẹ́' is high tone (Mí)."
+  },
+  {
+    id: "yo-2",
+    lang: "Yoruba",
+    phrase: "Báwo ni nǹkan?",
+    phonetic: "Bah-woh nee n-kan?",
+    meaning: "How are things with you? (Conversational greeting)",
+    toneTip: "'Bá' starts high, 'wo' is mid, 'ni' is mid."
+  },
+  {
+    id: "yo-3",
+    lang: "Yoruba",
+    phrase: "Ẹ ṣeé púpọ̀",
+    phonetic: "Eh shay poo-poh",
+    meaning: "Thank you very much (Respectful honorific)",
+    toneTip: "Always use 'Ẹ' when speaking to parents, educators, or elders."
+  },
+  {
+    id: "ig-1",
+    lang: "Igbo",
+    phrase: "Ndị banyị, kedu ka unu mere?",
+    phonetic: "Ndee bah-nyee, kay-doo kah oo-noo meh-reh?",
+    meaning: "Our people, how are you all doing?",
+    toneTip: "'Kedu' is the universal foundation for greeting in Igbo."
+  },
+  {
+    id: "ig-2",
+    lang: "Igbo",
+    phrase: "Daalụ nke ukwuu",
+    phonetic: "Dah-loo n-kay oo-kwoo",
+    meaning: "Thank you very much",
+    toneTip: "Tone rises slightly on 'Daalụ' and falls gently on 'ukwuu'."
+  },
+  {
+    id: "ig-3",
+    lang: "Igbo",
+    phrase: "Ka chi foo",
+    phonetic: "Kah chee foh",
+    meaning: "Good night / May morning break peacefully",
+    toneTip: "A melodic blessing spoken before retiring for the night."
+  },
+  {
+    id: "ha-1",
+    lang: "Hausa",
+    phrase: "Ina kwana? Barka da asuba",
+    phonetic: "Ee-nah kwah-nah? Bar-kah dah ah-soo-bah",
+    meaning: "Good morning! Blessings of the morning",
+    toneTip: "Tone is calm and rhythmic. Answer with: 'Lafiya lau' (In peace)."
+  },
+  {
+    id: "ha-2",
+    lang: "Hausa",
+    phrase: "Na gode kwarai da gaske",
+    phonetic: "Nah goh-day kwah-rye dah gahs-kay",
+    meaning: "I thank you truly and sincerely",
+    toneTip: "'Gaske' signifies truth and authenticity."
+  },
+  {
+    id: "ha-3",
+    lang: "Hausa",
+    phrase: "Sai anjima",
+    phonetic: "Sigh ahn-jee-mah",
+    meaning: "See you later / Until later",
+    toneTip: "Common farewell used between friends, peers, and teachers."
+  }
+];
+
 export default function StudentPortal() {
-  const { student, classes, assignments, openMeetingLauncher } = useApp();
-  const [activeTab, setActiveTab] = useState<"all" | "pending" | "submitted" | "graded">("all");
+  const { student, classes, assignments, openMeetingLauncher, logout } = useApp();
+  
+  // Navigation tabs
+  const [activeStudioTab, setActiveStudioTab] = useState<"classroom" | "homework" | "badges" | "audio-lab">("classroom");
+  
+  // Homework filter
+  const [homeworkFilter, setHomeworkFilter] = useState<"all" | "pending" | "submitted" | "graded">("all");
   const [selectedAssignmentForSubmission, setSelectedAssignmentForSubmission] = useState<Assignment | null>(null);
+
+  // Audio lab filter & state
+  const [audioLangFilter, setAudioLangFilter] = useState<"All" | "Yoruba" | "Igbo" | "Hausa">("All");
+  const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
 
   // Filter assignments
   const filteredAssignments = assignments.filter((asg) => {
-    if (activeTab === "all") return true;
-    return asg.status === activeTab;
+    if (homeworkFilter === "all") return true;
+    return asg.status === homeworkFilter;
   });
 
+  const pendingCount = assignments.filter(a => a.status === "pending").length;
   const nextLiveClass = classes.find((c) => c.status === "live") || classes[0];
 
+  // Speech pronunciation helper
+  const handlePlayAudio = (phrase: CulturalPhrase) => {
+    setPlayingAudioId(phrase.id);
+
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(phrase.phrase);
+      utterance.rate = 0.85; // slower for pedagogy
+      utterance.pitch = 1.05;
+      utterance.onend = () => setPlayingAudioId(null);
+      utterance.onerror = () => setPlayingAudioId(null);
+      window.speechSynthesis.speak(utterance);
+    } else {
+      setTimeout(() => setPlayingAudioId(null), 1200);
+    }
+  };
+
+  const filteredPhrases = HERITAGE_PHRASES.filter(p => {
+    if (audioLangFilter === "All") return true;
+    return p.lang === audioLangFilter;
+  });
+
   return (
-    <div className={styles.container}>
+    <AuthGuard requiredRole="student" portalName="Student Learner Studio">
+      <div className={styles.container}>
       {/* Top Header */}
       <nav className={styles.topNav}>
-        <div className={`container ${styles.navInner}`}>
+        <div className={styles.navInner}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Link href="/" className={styles.logo} style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
+            <Link href="/" className={styles.logo}>
               <Image src="/logo.png" alt="Logo" width={38} height={38} style={{ borderRadius: "50%", border: "2px solid #e0b034" }} />
               <span>Nija Language Hub</span>
             </Link>
-            <span className={styles.badgeRole}>Student Portal</span>
+            <span className={styles.badgeRole}>Student Studio</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <span style={{ fontSize: "0.85rem", color: "#fef08a", fontWeight: 700 }}>{student.name}</span>
-            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "var(--color-primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: "0.88rem", fontWeight: 700, color: "#0f172a" }}>{student.name}</div>
+              <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{student.enrolledLanguage} Track</div>
+            </div>
+            <div style={{ 
+              width: "38px", 
+              height: "38px", 
+              borderRadius: "50%", 
+              background: "linear-gradient(135deg, #4338ca, #6366f1)", 
+              color: "white", 
+              display: "flex", 
+              alignItems: "center", 
+              justifyContent: "center", 
+              fontWeight: 800,
+              boxShadow: "0 2px 8px rgba(67, 56, 202, 0.25)"
+            }}>
               {student.avatarLetter}
             </div>
+            <button 
+              onClick={logout}
+              title="Switch Account"
+              style={{
+                background: "none",
+                border: "1px solid #e2e8f0",
+                padding: "8px",
+                borderRadius: "10px",
+                cursor: "pointer",
+                color: "#64748b",
+                display: "flex",
+                alignItems: "center"
+              }}
+            >
+              <LogOut size={16} />
+            </button>
           </div>
         </div>
       </nav>
 
-      {/* Main Content Area */}
-      <main className={styles.mainContent}>
-        <div className="container">
-          {/* Hero Profile Banner */}
-          <div className={styles.heroProfile}>
-            <div className={styles.profileInfo}>
-              <div className={styles.avatar}>{student.avatarLetter}</div>
-              <div>
-                <span style={{ fontSize: "0.85rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#fef08a", fontWeight: 700 }}>
-                  Ẹ ǸLẸ́ O • WELCOME BACK!
-                </span>
-                <h1 className={styles.greetingTitle}>{student.name}</h1>
-                <p style={{ color: "#d1d5db", margin: 0, fontSize: "0.95rem" }}>
-                  {student.enrolledLanguage} • {student.level} • Age {student.age}
-                </p>
-                <p style={{ color: "#9ca3af", fontSize: "0.85rem", marginTop: "4px" }}>
-                  Mentor: <strong>{student.assignedTeacher}</strong>
-                </p>
-              </div>
-            </div>
-
-            {/* Gamification Stats Bar */}
-            <div className={styles.statsBar}>
-              <div className={styles.statItem}>
-                <div className={styles.statVal}>
-                  <Flame size={20} color="#f97316" /> {student.streakDays}
-                </div>
-                <div className={styles.statLabel}>Day Streak</div>
-              </div>
-              <div style={{ width: "1px", backgroundColor: "rgba(255,255,255,0.15)" }}></div>
-              <div className={styles.statItem}>
-                <div className={styles.statVal}>
-                  <Zap size={20} color="#eab308" /> {student.xpPoints}
-                </div>
-                <div className={styles.statLabel}>Total XP</div>
-              </div>
-              <div style={{ width: "1px", backgroundColor: "rgba(255,255,255,0.15)" }}></div>
-              <div className={styles.statItem}>
-                <div className={styles.statVal}>
-                  <Star size={20} color="#a855f7" /> {student.badges.length}
-                </div>
-                <div className={styles.statLabel}>Badges</div>
-              </div>
+      {/* Main Studio Area */}
+      <main className={styles.mainContainer}>
+        {/* Hero Profile Banner */}
+        <div className={styles.heroProfile}>
+          <div className={styles.profileInfo}>
+            <div className={styles.avatar}>{student.avatarLetter}</div>
+            <div>
+              <span className={styles.greetingSub}>
+                Ẹ ǸLẸ́ O • WELCOME BACK!
+              </span>
+              <h1 className={styles.greetingTitle}>{student.name}</h1>
+              <p className={styles.greetingDetails}>
+                {student.enrolledLanguage} • {student.level} • Age {student.age}
+              </p>
+              <p style={{ color: "#a5b4fc", fontSize: "0.82rem", marginTop: "4px" }}>
+                Educator Mentor: <strong>{student.assignedTeacher || "Lead Faculty"}</strong>
+              </p>
             </div>
           </div>
 
-          {/* 2-Column Layout */}
-          <div className={styles.dashboardGrid}>
-            {/* Left Column: Live Class & Assignments */}
-            <div>
-              {/* Featured Live Class Widget */}
-              {nextLiveClass ? (
-                <div className={styles.liveClassCard}>
-                  <div className={styles.liveClassHeader}>
-                    <div>
-                      <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-                        <span className={styles.liveBadge}>
-                          <span className={styles.pulseDot}></span>
-                          {nextLiveClass.status === "live" ? "Class is Live Now!" : "Next Scheduled Class"}
-                        </span>
-                        <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-gray-500)" }}>
-                          {nextLiveClass.date} • {nextLiveClass.time}
-                        </span>
-                      </div>
-                      <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--color-secondary)", margin: 0 }}>
-                        {nextLiveClass.title}
-                      </h2>
-                      <p style={{ margin: "6px 0 0", color: "var(--color-gray-600)", fontSize: "0.9rem" }}>
-                        Live with <strong>{nextLiveClass.teacherName}</strong> via {nextLiveClass.platform === "google-meet" ? "Google Meet" : "Zoom"}
-                      </p>
-                    </div>
-
-                    {/* Prominent "Start Now" Button */}
-                    <button
-                      onClick={() => openMeetingLauncher(nextLiveClass)}
-                      className="btn btn-primary"
-                      style={{
-                        padding: "16px 28px",
-                        fontSize: "1.05rem",
-                        backgroundColor: "#16a34a",
-                        boxShadow: "0 8px 24px rgba(22, 163, 74, 0.35)",
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "10px",
-                        borderRadius: "var(--radius-full)"
-                      }}
-                    >
-                      <Video size={20} />
-                      Start Now / Join Class
-                    </button>
-                  </div>
-
-                  {/* Agenda Topics */}
-                  {nextLiveClass.topics && nextLiveClass.topics.length > 0 && (
-                    <div className={styles.classTopicList}>
-                      <span style={{ fontSize: "0.75rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-600)", display: "block", marginBottom: "6px" }}>
-                        Today's Interactive Session Plan:
-                      </span>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
-                        {nextLiveClass.topics.map((t, idx) => (
-                          <span
-                            key={idx}
-                            style={{
-                              backgroundColor: "white",
-                              padding: "4px 10px",
-                              borderRadius: "12px",
-                              fontSize: "0.8rem",
-                              color: "var(--color-gray-700)",
-                              border: "1px solid var(--color-gray-200)",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "4px"
-                            }}
-                          >
-                            <Check size={12} color="#16a34a" /> {t}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <span style={{ fontSize: "0.8rem", color: "var(--color-gray-500)" }}>
-                      Meeting ID: <code style={{ fontWeight: 600 }}>{nextLiveClass.meetingId}</code> • Passcode: <code style={{ fontWeight: 600 }}>{nextLiveClass.meetingPasscode}</code>
-                    </span>
-                    <button
-                      onClick={() => openMeetingLauncher(nextLiveClass)}
-                      style={{ background: "none", border: "none", color: "var(--color-primary)", fontSize: "0.85rem", fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: "4px" }}
-                    >
-                      Open Google Meet / Zoom Launcher <ArrowRight size={14} />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="card-floating" style={{ padding: "32px", textAlign: "center", backgroundColor: "white", marginBottom: "24px" }}>
-                  <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "var(--color-primary-light)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                    <Video size={28} color="var(--color-primary)" />
-                  </div>
-                  <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--color-secondary)", marginBottom: "6px" }}>
-                    No Live Sessions Scheduled Right Now
-                  </h3>
-                  <p style={{ color: "var(--color-gray-600)", fontSize: "0.9rem", maxWidth: "450px", margin: "0 auto" }}>
-                    Your educator or hub administrator will schedule your upcoming live video lessons. When a class is scheduled, your meeting launcher will appear here.
-                  </p>
-                </div>
-              )}
-
-              {/* Assignment & Classwork Hub */}
-              <div style={{ marginTop: "32px" }}>
-                <div className={styles.sectionHeader}>
-                  <h2 className={styles.sectionTitle}>
-                    <BookOpen size={22} color="var(--color-primary)" />
-                    Assignments & Classwork
-                  </h2>
-                  <span style={{ fontSize: "0.85rem", color: "var(--color-gray-500)" }}>
-                    Submit homework & check teacher marks
-                  </span>
-                </div>
-
-                {/* Filter Tabs */}
-                <div className={styles.tabList}>
-                  <button
-                    className={`${styles.tabBtn} ${activeTab === "all" ? styles.activeTabBtn : ""}`}
-                    onClick={() => setActiveTab("all")}
-                  >
-                    All Work ({assignments.length})
-                  </button>
-                  <button
-                    className={`${styles.tabBtn} ${activeTab === "pending" ? styles.activeTabBtn : ""}`}
-                    onClick={() => setActiveTab("pending")}
-                  >
-                    To Do ({assignments.filter((a) => a.status === "pending").length})
-                  </button>
-                  <button
-                    className={`${styles.tabBtn} ${activeTab === "submitted" ? styles.activeTabBtn : ""}`}
-                    onClick={() => setActiveTab("submitted")}
-                  >
-                    Submitted ({assignments.filter((a) => a.status === "submitted").length})
-                  </button>
-                  <button
-                    className={`${styles.tabBtn} ${activeTab === "graded" ? styles.activeTabBtn : ""}`}
-                    onClick={() => setActiveTab("graded")}
-                  >
-                    Graded ({assignments.filter((a) => a.status === "graded").length})
-                  </button>
-                </div>
-
-                {/* Assignment Cards List */}
-                {filteredAssignments.length === 0 ? (
-                  <div className="card-floating" style={{ padding: "40px", textAlign: "center", backgroundColor: "white" }}>
-                    <div style={{ width: "52px", height: "52px", borderRadius: "50%", backgroundColor: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
-                      <CheckCircle size={26} color="#16a34a" />
-                    </div>
-                    <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--color-secondary)", marginBottom: "4px" }}>
-                      No Assignments in this Section
-                    </h3>
-                    <p style={{ color: "var(--color-gray-600)", fontSize: "0.85rem", margin: 0 }}>
-                      {activeTab === "pending"
-                        ? "You have completed all pending homework tasks!"
-                        : activeTab === "submitted"
-                        ? "No assignments currently awaiting teacher evaluation."
-                        : activeTab === "graded"
-                        ? "No graded assignments yet. Submit a task to receive official marks."
-                        : "No homework or classwork tasks assigned yet."}
-                    </p>
-                  </div>
-                ) : (
-                  filteredAssignments.map((asg) => (
-                    <div key={asg.id} className={styles.assignmentCard}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)", textTransform: "uppercase" }}>
-                              {asg.subject}
-                            </span>
-                            <span style={{ color: "var(--color-gray-300)" }}>•</span>
-                            <span style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>
-                              {asg.dueDate}
-                            </span>
-                          </div>
-                          <h3 style={{ fontSize: "1.15rem", fontWeight: 600, color: "var(--color-secondary)", margin: 0 }}>
-                            {asg.title}
-                          </h3>
-                        </div>
-
-                        {/* Status Badges */}
-                        <div>
-                          {asg.status === "pending" && <span className={styles.badgePending}>Pending Submission</span>}
-                          {asg.status === "submitted" && <span className={styles.badgeSubmitted}>Under Review</span>}
-                          {asg.status === "graded" && (
-                            <span className={styles.badgeGraded}>
-                              Score: {asg.grade?.score}/100 ({asg.grade?.letter})
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <p style={{ fontSize: "0.9rem", color: "var(--color-gray-600)", lineHeight: 1.5, marginBottom: "16px" }}>
-                        {asg.description}
-                      </p>
-
-                      {/* Graded Details */}
-                      {asg.status === "graded" && asg.grade && (
-                        <div style={{
-                          backgroundColor: "#f0fdf4",
-                          border: "1px solid #bbf7d0",
-                          borderRadius: "var(--radius-md)",
-                          padding: "16px",
-                          marginBottom: "16px"
-                        }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "#166534", fontSize: "0.9rem" }}>
-                              <Award size={18} /> Teacher Evaluation by {asg.grade.gradedBy}:
-                            </div>
-                            <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#15803d" }}>
-                              {asg.grade.score}% ({asg.grade.letter})
-                            </span>
-                          </div>
-                          <p style={{ margin: "4px 0 10px", fontSize: "0.88rem", fontStyle: "italic", color: "#166534" }}>
-                            "{asg.grade.feedback}"
-                          </p>
-                          {asg.grade.badges && asg.grade.badges.length > 0 && (
-                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                              {asg.grade.badges.map((bName, i) => (
-                                <span
-                                  key={i}
-                                  style={{
-                                    backgroundColor: "white",
-                                    padding: "3px 8px",
-                                    borderRadius: "12px",
-                                    fontSize: "0.75rem",
-                                    fontWeight: 600,
-                                    color: "#166534",
-                                    border: "1px solid #86efac"
-                                  }}
-                                >
-                                  {bName}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Submitted details info */}
-                      {asg.status === "submitted" && asg.studentSubmission && (
-                        <div style={{
-                          backgroundColor: "#f0f9ff",
-                          border: "1px solid #bae6fd",
-                          borderRadius: "var(--radius-md)",
-                          padding: "12px 16px",
-                          marginBottom: "16px",
-                          fontSize: "0.85rem",
-                          color: "#0369a1"
-                        }}>
-                          <strong>Turned In ({asg.studentSubmission.submittedAt}):</strong> {asg.studentSubmission.textResponse}
-                          {asg.studentSubmission.fileName && (
-                            <div style={{ marginTop: "4px", fontSize: "0.8rem", color: "#0284c7", display: "flex", alignItems: "center", gap: "4px" }}>
-                              <FileText size={13} /> Attached: {asg.studentSubmission.fileName}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                        {asg.status === "pending" ? (
-                          <button
-                            onClick={() => setSelectedAssignmentForSubmission(asg)}
-                            className="btn btn-primary"
-                            style={{
-                              padding: "8px 20px",
-                              fontSize: "0.85rem",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px"
-                            }}
-                          >
-                            <Upload size={14} />
-                            Turn In / Submit Assignment
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => setSelectedAssignmentForSubmission(asg)}
-                            className="btn btn-outline"
-                            style={{
-                              padding: "6px 14px",
-                              fontSize: "0.8rem",
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: "6px"
-                            }}
-                          >
-                            {asg.status === "graded" ? "View Full Report" : "Resubmit / Update Work"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))
-                )}
+          {/* Gamification Stats */}
+          <div className={styles.statsBar}>
+            <div className={styles.statItem}>
+              <div className={styles.statVal}>
+                <Flame size={20} color="#f97316" /> {student.streakDays}
               </div>
+              <div className={styles.statLabel}>Day Streak</div>
             </div>
-
-            {/* Right Column: Class Schedules & Badges */}
-            <div>
-              {/* Upcoming Schedules */}
-              <div className="card-floating" style={{ padding: "24px", marginBottom: "32px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-                  <h3 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--color-secondary)", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Calendar size={18} color="var(--color-primary)" />
-                    Class Schedules
-                  </h3>
-                  <span style={{ fontSize: "0.75rem", color: "var(--color-gray-500)", fontWeight: 600 }}>
-                    {classes.length} Sessions
-                  </span>
-                </div>
-
-                <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {classes.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "24px 12px", color: "var(--color-gray-500)", fontSize: "0.85rem" }}>
-                      <Calendar size={24} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
-                      <p style={{ margin: 0 }}>No upcoming class sessions on your schedule.</p>
-                    </div>
-                  ) : (
-                    classes.map((cls) => (
-                      <div
-                        key={cls.id}
-                        style={{
-                          padding: "14px",
-                          backgroundColor: cls.status === "live" ? "#f0fdf4" : "var(--color-gray-50)",
-                          borderRadius: "var(--radius-md)",
-                          border: cls.status === "live" ? "1px solid #86efac" : "1px solid var(--color-gray-200)"
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)" }}>
-                            {cls.date} • {cls.time}
-                          </span>
-                          <span style={{
-                            fontSize: "0.7rem",
-                            fontWeight: 700,
-                            padding: "2px 8px",
-                            borderRadius: "10px",
-                            backgroundColor: cls.platform === "google-meet" ? "#e0f2fe" : "#fef3c7",
-                            color: cls.platform === "google-meet" ? "#0369a1" : "#b45309"
-                          }}>
-                            {cls.platform === "google-meet" ? "Meet" : "Zoom"}
-                          </span>
-                        </div>
-                        <h4 style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--color-secondary)", margin: "0 0 4px" }}>
-                          {cls.title}
-                        </h4>
-                        <p style={{ fontSize: "0.8rem", color: "var(--color-gray-600)", margin: "0 0 10px" }}>
-                          Teacher: {cls.teacherName}
-                        </p>
-
-                        <button
-                          onClick={() => openMeetingLauncher(cls)}
-                          className="btn btn-outline"
-                          style={{
-                            width: "100%",
-                            padding: "6px 12px",
-                            fontSize: "0.8rem",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: "6px"
-                          }}
-                        >
-                          <Video size={14} />
-                          {cls.status === "live" ? "Join Class Now" : "Launch Meeting Details"}
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
+            <div style={{ width: "1px", height: "30px", backgroundColor: "rgba(255,255,255,0.2)" }}></div>
+            <div className={styles.statItem}>
+              <div className={styles.statVal}>
+                <Zap size={20} color="#facc15" /> {student.xpPoints}
               </div>
-
-              {/* Earned Badges Showcase */}
-              <div className="card-floating" style={{ padding: "24px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                  <h3 style={{ fontSize: "1.15rem", fontWeight: 700, color: "var(--color-secondary)", margin: 0, display: "flex", alignItems: "center", gap: "6px" }}>
-                    <Sparkles size={18} color="#eab308" />
-                    Cultural Badges Earned
-                  </h3>
-                  <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)" }}>
-                    {student.badges.length} Badges
-                  </span>
-                </div>
-                <p style={{ fontSize: "0.8rem", color: "var(--color-gray-500)", margin: "0 0 16px" }}>
-                  Badges awarded by {student.assignedTeacher || "faculty"} for mastery and participation.
-                </p>
-
-                {student.badges.length === 0 ? (
-                  <div style={{ textAlign: "center", padding: "24px 12px", color: "var(--color-gray-500)", fontSize: "0.85rem", backgroundColor: "var(--color-gray-50)", borderRadius: "var(--radius-md)" }}>
-                    <Award size={28} style={{ margin: "0 auto 6px", color: "var(--color-primary)", opacity: 0.6 }} />
-                    <p style={{ fontWeight: 600, color: "var(--color-secondary)", margin: "0 0 4px" }}>No badges unlocked yet</p>
-                    <p style={{ fontSize: "0.78rem", margin: 0 }}>Complete assignments and live speaking challenges to earn cultural accolades!</p>
-                  </div>
-                ) : (
-                  <div className={styles.badgesGrid}>
-                    {student.badges.map((b) => (
-                      <div key={b.id} className={styles.badgeItem}>
-                        <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>
-                          <Award size={24} color="var(--color-primary)" />
-                        </div>
-                        <div className={styles.badgeName}>{b.name}</div>
-                        <div style={{ fontSize: "0.65rem", color: "var(--color-gray-500)", marginTop: "2px" }}>
-                          {b.dateEarned}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className={styles.statLabel}>Total XP</div>
+            </div>
+            <div style={{ width: "1px", height: "30px", backgroundColor: "rgba(255,255,255,0.2)" }}></div>
+            <div className={styles.statItem}>
+              <div className={styles.statVal}>
+                <Award size={20} color="#a7f3d0" /> {student.badges.length}
               </div>
+              <div className={styles.statLabel}>Badges</div>
             </div>
           </div>
         </div>
+
+        {/* Studio Navigation Tabs */}
+        <div className={styles.tabNav}>
+          <button
+            onClick={() => setActiveStudioTab("classroom")}
+            className={`${styles.tabBtn} ${activeStudioTab === "classroom" ? styles.tabBtnActive : ""}`}
+          >
+            <Video size={18} />
+            <span>Classroom & Live Sessions</span>
+            <span className={styles.tabBadge}>{classes.length}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveStudioTab("homework")}
+            className={`${styles.tabBtn} ${activeStudioTab === "homework" ? styles.tabBtnActive : ""}`}
+          >
+            <BookOpen size={18} />
+            <span>Homework & Missions</span>
+            {pendingCount > 0 && (
+              <span className={styles.tabBadge} style={{ background: "#ef4444", color: "white" }}>
+                {pendingCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveStudioTab("badges")}
+            className={`${styles.tabBtn} ${activeStudioTab === "badges" ? styles.tabBtnActive : ""}`}
+          >
+            <Award size={18} />
+            <span>Cultural Badges</span>
+            <span className={styles.tabBadge}>{student.badges.length}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveStudioTab("audio-lab")}
+            className={`${styles.tabBtn} ${activeStudioTab === "audio-lab" ? styles.tabBtnActive : ""}`}
+          >
+            <Headphones size={18} />
+            <span>Heritage Soundboard</span>
+          </button>
+        </div>
+
+        {/* TAB 1: CLASSROOM & LIVE SESSIONS */}
+        {activeStudioTab === "classroom" && (
+          <div>
+            {/* Live Class Hero Banner */}
+            {nextLiveClass ? (
+              <div className={styles.liveHeroCard}>
+                <div>
+                  <span className={styles.liveTag}>
+                    <span className={styles.pulseDot}></span>
+                    {nextLiveClass.status === "live" ? "Class is Live Right Now!" : "Next Scheduled Live Lesson"}
+                  </span>
+                  <h2 className={styles.liveTitle}>{nextLiveClass.title}</h2>
+                  <p className={styles.liveDesc}>
+                    Live with <strong>{nextLiveClass.teacherName}</strong> • {nextLiveClass.date} at {nextLiveClass.time}
+                  </p>
+
+                  {/* Agenda Topics */}
+                  {nextLiveClass.topics && nextLiveClass.topics.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "8px", marginTop: "12px" }}>
+                      {nextLiveClass.topics.map((topic, i) => (
+                        <span 
+                          key={i} 
+                          style={{
+                            background: "rgba(255,255,255,0.2)",
+                            padding: "4px 10px",
+                            borderRadius: "10px",
+                            fontSize: "0.78rem",
+                            fontWeight: 600,
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "4px"
+                          }}
+                        >
+                          <Check size={12} color="#4ade80" /> {topic}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ textAlign: "right" }}>
+                  <button
+                    onClick={() => openMeetingLauncher(nextLiveClass)}
+                    className={styles.startBtn}
+                  >
+                    <Video size={20} />
+                    Start Now / Join Class
+                  </button>
+                  <div style={{ fontSize: "0.75rem", color: "#a7f3d0", marginTop: "8px", fontWeight: 600 }}>
+                    Meeting ID: {nextLiveClass.meetingId}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className={styles.emptyCard} style={{ marginBottom: "24px" }}>
+                <div className={styles.emptyIcon}>📅</div>
+                <h3 className={styles.emptyTitle}>No Live Session Active Right Now</h3>
+                <p className={styles.emptyDesc}>
+                  Your educator or administrator will schedule your upcoming 1-on-1 language lessons. They will show up here with 1-click meeting launchers.
+                </p>
+              </div>
+            )}
+
+            {/* Upcoming Classes Timetable */}
+            <div style={{ marginBottom: "16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3 style={{ fontSize: "1.25rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                Master Timetable & Lesson Schedule
+              </h3>
+              <span style={{ fontSize: "0.85rem", color: "#64748b", fontWeight: 600 }}>
+                {classes.length} Lessons Available
+              </span>
+            </div>
+
+            <div className={styles.grid2}>
+              {classes.map((cls) => (
+                <div key={cls.id} className={styles.sessionCard}>
+                  <div className={styles.sessionHeader}>
+                    <div>
+                      <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#4338ca", display: "block", marginBottom: "4px" }}>
+                        {cls.date} • {cls.time}
+                      </span>
+                      <h4 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", margin: 0 }}>
+                        {cls.title}
+                      </h4>
+                    </div>
+                    <span className={cls.platform === "google-meet" ? styles.badgePlatformMeet : styles.badgePlatformZoom}>
+                      {cls.platform === "google-meet" ? "Google Meet" : "Zoom"}
+                    </span>
+                  </div>
+
+                  <p style={{ fontSize: "0.85rem", color: "#64748b", margin: 0 }}>
+                    Instructor: <strong>{cls.teacherName}</strong> • Language Track: <strong>{cls.language}</strong>
+                  </p>
+
+                  {cls.topics && cls.topics.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {cls.topics.map((t, i) => (
+                        <span key={i} className={styles.topicTag}>
+                          <Check size={11} color="#16a34a" /> {t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderTop: "1px solid #f1f5f9", paddingTop: "14px" }}>
+                    <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                      Passcode: <strong>{cls.meetingPasscode}</strong>
+                    </span>
+                    <button
+                      onClick={() => openMeetingLauncher(cls)}
+                      style={{
+                        background: "#4338ca",
+                        color: "white",
+                        border: "none",
+                        padding: "8px 16px",
+                        borderRadius: "10px",
+                        fontSize: "0.82rem",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "6px"
+                      }}
+                    >
+                      <Video size={14} /> Join Session
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: HOMEWORK & MISSIONS */}
+        {activeStudioTab === "homework" && (
+          <div>
+            {/* Filter Pills */}
+            <div className={styles.filterPills}>
+              <button
+                onClick={() => setHomeworkFilter("all")}
+                className={`${styles.filterPill} ${homeworkFilter === "all" ? styles.filterPillActive : ""}`}
+              >
+                All Missions ({assignments.length})
+              </button>
+              <button
+                onClick={() => setHomeworkFilter("pending")}
+                className={`${styles.filterPill} ${homeworkFilter === "pending" ? styles.filterPillActive : ""}`}
+              >
+                To Do ({assignments.filter(a => a.status === "pending").length})
+              </button>
+              <button
+                onClick={() => setHomeworkFilter("submitted")}
+                className={`${styles.filterPill} ${homeworkFilter === "submitted" ? styles.filterPillActive : ""}`}
+              >
+                Under Review ({assignments.filter(a => a.status === "submitted").length})
+              </button>
+              <button
+                onClick={() => setHomeworkFilter("graded")}
+                className={`${styles.filterPill} ${homeworkFilter === "graded" ? styles.filterPillActive : ""}`}
+              >
+                Graded & Evaluated ({assignments.filter(a => a.status === "graded").length})
+              </button>
+            </div>
+
+            {/* List of Assignments */}
+            {filteredAssignments.length === 0 ? (
+              <div className={styles.emptyCard}>
+                <div className={styles.emptyIcon}>🎉</div>
+                <h3 className={styles.emptyTitle}>No Missions in this Section</h3>
+                <p className={styles.emptyDesc}>
+                  {homeworkFilter === "pending"
+                    ? "Great job! You have submitted all assigned missions."
+                    : "No assignments match this criteria."}
+                </p>
+              </div>
+            ) : (
+              filteredAssignments.map((asg) => (
+                <div key={asg.id} className={styles.missionCard}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "10px", marginBottom: "12px" }}>
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 800, color: "#4338ca", textTransform: "uppercase" }}>
+                          {asg.subject}
+                        </span>
+                        <span style={{ color: "#cbd5e1" }}>•</span>
+                        <span style={{ fontSize: "0.78rem", color: "#64748b", fontWeight: 600 }}>
+                          Due Date: {asg.dueDate}
+                        </span>
+                      </div>
+                      <h3 style={{ fontSize: "1.2rem", fontWeight: 800, color: "#0f172a", margin: 0 }}>
+                        {asg.title}
+                      </h3>
+                    </div>
+
+                    <div>
+                      {asg.status === "pending" && <span className={styles.badgePending}>Pending Submission</span>}
+                      {asg.status === "submitted" && <span className={styles.badgeSubmitted}>Under Educator Review</span>}
+                      {asg.status === "graded" && (
+                        <span className={styles.badgeGraded}>
+                          Score: {asg.grade?.score}/100 ({asg.grade?.letter})
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <p style={{ fontSize: "0.92rem", color: "#475569", lineHeight: 1.5, margin: "0 0 16px" }}>
+                    {asg.description}
+                  </p>
+
+                  {/* If Graded: Show rubric and teacher evaluation */}
+                  {asg.status === "graded" && asg.grade && (
+                    <div className={styles.gradedFeedbackBox}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 800, color: "#166534", fontSize: "0.92rem" }}>
+                          <Award size={18} /> Educator Review by {asg.grade.gradedBy}:
+                        </div>
+                        <span style={{ fontSize: "1.25rem", fontWeight: 800, color: "#15803d" }}>
+                          {asg.grade.score}% ({asg.grade.letter})
+                        </span>
+                      </div>
+                      <p style={{ margin: "4px 0 10px", fontSize: "0.88rem", fontStyle: "italic", color: "#14532d" }}>
+                        "{asg.grade.feedback}"
+                      </p>
+                      {asg.grade.badges && asg.grade.badges.length > 0 && (
+                        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", alignItems: "center" }}>
+                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#166534" }}>Awarded Badges:</span>
+                          {asg.grade.badges.map((bName, i) => (
+                            <span
+                              key={i}
+                              style={{
+                                backgroundColor: "white",
+                                padding: "3px 8px",
+                                borderRadius: "10px",
+                                fontSize: "0.72rem",
+                                fontWeight: 700,
+                                color: "#166534",
+                                border: "1px solid #86efac"
+                              }}
+                            >
+                              ⭐ {bName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* If Submitted: Show what was turned in */}
+                  {asg.status === "submitted" && asg.studentSubmission && (
+                    <div className={styles.submissionBox}>
+                      <div style={{ fontWeight: 700, color: "#0369a1", marginBottom: "4px" }}>
+                        Turned In ({asg.studentSubmission.submittedAt}):
+                      </div>
+                      <div>{asg.studentSubmission.textResponse}</div>
+                      {asg.studentSubmission.fileName && (
+                        <div style={{ marginTop: "6px", fontSize: "0.8rem", color: "#0284c7", display: "flex", alignItems: "center", gap: "4px" }}>
+                          <FileText size={14} /> Attached Document: <strong>{asg.studentSubmission.fileName}</strong>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "14px" }}>
+                    {asg.status === "pending" ? (
+                      <button
+                        onClick={() => setSelectedAssignmentForSubmission(asg)}
+                        className="btn btn-primary"
+                        style={{
+                          padding: "10px 22px",
+                          fontSize: "0.88rem",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "8px"
+                        }}
+                      >
+                        <Upload size={16} />
+                        Turn In / Submit Mission
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => setSelectedAssignmentForSubmission(asg)}
+                        className="btn btn-outline"
+                        style={{
+                          padding: "8px 16px",
+                          fontSize: "0.82rem",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px"
+                        }}
+                      >
+                        {asg.status === "graded" ? "View Full Assessment" : "Update / Resubmit Mission"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: CULTURAL BADGES & TROPHIES */}
+        {activeStudioTab === "badges" && (
+          <div>
+            <div style={{ marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>
+                Cultural Heritage Trophy Case
+              </h2>
+              <p style={{ color: "#64748b", margin: 0, fontSize: "0.88rem" }}>
+                Earned through mastery of greetings, oral storytelling, tonal accuracy, and homework excellence.
+              </p>
+            </div>
+
+            <div className={styles.gridCards}>
+              {/* Unlocked Badges */}
+              {student.badges.map((b) => (
+                <div key={b.id} className={`${styles.badgeCard} ${styles.badgeCardUnlocked}`}>
+                  <div className={styles.badgeIconRing}>
+                    <Award size={32} />
+                  </div>
+                  <h3 className={styles.badgeCardName}>{b.name}</h3>
+                  <p className={styles.badgeCardDesc}>
+                    {b.description || "Mastered authentic oral heritage expressions and passed instructor assessment."}
+                  </p>
+                  <span className={styles.badgeCardDate}>
+                    Unlocked on {b.dateEarned}
+                  </span>
+                </div>
+              ))}
+
+              {/* Milestone Locked Badges */}
+              <div className={`${styles.badgeCard} ${styles.badgeCardLocked}`}>
+                <div className={styles.badgeIconRing} style={{ background: "#f1f5f9", color: "#94a3b8", borderColor: "#e2e8f0" }}>
+                  <Lock size={28} />
+                </div>
+                <h3 className={styles.badgeCardName}>Ọ̀rọ̀ Àgbà (Master of Proverbs)</h3>
+                <p className={styles.badgeCardDesc}>
+                  Awarded for reciting and contextualizing 5 Nigerian proverbs during live dialogue.
+                </p>
+                <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
+                  Locked • Complete 5 More Live Classes
+                </span>
+              </div>
+
+              <div className={`${styles.badgeCard} ${styles.badgeCardLocked}`}>
+                <div className={styles.badgeIconRing} style={{ background: "#f1f5f9", color: "#94a3b8", borderColor: "#e2e8f0" }}>
+                  <Lock size={28} />
+                </div>
+                <h3 className={styles.badgeCardName}>Nwa Amamife (Child of Wisdom)</h3>
+                <p className={styles.badgeCardDesc}>
+                  Awarded for achieving 95%+ score across 3 consecutive homework assignments.
+                </p>
+                <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
+                  Locked • 1/3 Missions Completed
+                </span>
+              </div>
+
+              <div className={`${styles.badgeCard} ${styles.badgeCardLocked}`}>
+                <div className={styles.badgeIconRing} style={{ background: "#f1f5f9", color: "#94a3b8", borderColor: "#e2e8f0" }}>
+                  <Lock size={28} />
+                </div>
+                <h3 className={styles.badgeCardName}>Gwarzon Hausa (Champion Speaker)</h3>
+                <p className={styles.badgeCardDesc}>
+                  Awarded for flawless morning & evening conversational salutations.
+                </p>
+                <span style={{ fontSize: "0.72rem", color: "#64748b", fontWeight: 600 }}>
+                  Locked • Level 2 Required
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: HERITAGE SOUNDBOARD */}
+        {activeStudioTab === "audio-lab" && (
+          <div>
+            <div style={{ marginBottom: "20px" }}>
+              <h2 style={{ fontSize: "1.35rem", fontWeight: 800, color: "#0f172a", margin: "0 0 4px" }}>
+                Heritage Dialect Soundboard & Tone Guide
+              </h2>
+              <p style={{ color: "#64748b", margin: 0, fontSize: "0.88rem" }}>
+                Interactive pronunciation trainer for tonal precision in Yoruba (Dò-Re-Mí), Igbo, and Hausa.
+              </p>
+            </div>
+
+            {/* Language Filter */}
+            <div className={styles.filterPills}>
+              {(["All", "Yoruba", "Igbo", "Hausa"] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setAudioLangFilter(lang)}
+                  className={`${styles.filterPill} ${audioLangFilter === lang ? styles.filterPillActive : ""}`}
+                >
+                  {lang} Dialects
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.gridCards}>
+              {filteredPhrases.map((phrase) => {
+                const isPlaying = playingAudioId === phrase.id;
+                return (
+                  <div key={phrase.id} className={styles.audioCard}>
+                    <div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span className={styles.audioLangTag}>{phrase.lang}</span>
+                        <span style={{ fontSize: "0.72rem", color: "#94a3b8", fontWeight: 600 }}>Pronunciation Lab</span>
+                      </div>
+                      <h3 className={styles.phraseNative}>{phrase.phrase}</h3>
+                      <div className={styles.phrasePhonetic}>{phrase.phonetic}</div>
+                      <p className={styles.phraseEnglish}>"{phrase.meaning}"</p>
+                      
+                      <div style={{ 
+                        background: "#f8fafc", 
+                        border: "1px dashed #cbd5e1", 
+                        padding: "8px 12px", 
+                        borderRadius: "10px", 
+                        fontSize: "0.78rem", 
+                        color: "#475569", 
+                        marginBottom: "16px" 
+                      }}>
+                        💡 <strong>Tone Tip:</strong> {phrase.toneTip}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => handlePlayAudio(phrase)}
+                      className={`${styles.audioBtn} ${isPlaying ? styles.audioBtnPlaying : ""}`}
+                    >
+                      {isPlaying ? (
+                        <>
+                          <Volume2 size={16} />
+                          <span>Speaking Native Tone...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play size={16} />
+                          <span>Listen & Practice Audio</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Submission Modal */}
-      {selectedAssignmentForSubmission && (
-        <SubmitAssignmentModal
-          assignment={selectedAssignmentForSubmission}
-          onClose={() => setSelectedAssignmentForSubmission(null)}
-        />
-      )}
-    </div>
+        {/* Submission Modal */}
+        {selectedAssignmentForSubmission && (
+          <SubmitAssignmentModal
+            assignment={selectedAssignmentForSubmission}
+            onClose={() => setSelectedAssignmentForSubmission(null)}
+          />
+        )}
+      </div>
+    </AuthGuard>
   );
 }

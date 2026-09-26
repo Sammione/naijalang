@@ -5,32 +5,30 @@ import Link from "next/link";
 import Image from "next/image";
 import styles from "./admin.module.css";
 import { useApp } from "@/context/AppContext";
+import AuthGuard from "@/components/AuthGuard";
 import { 
-  ShieldCheck, 
   Users, 
   GraduationCap, 
   UserCheck, 
-  CreditCard, 
-  TrendingUp, 
   Video, 
   BookOpen, 
-  CheckCircle, 
-  Clock, 
-  Calendar, 
+  CreditCard, 
+  TrendingUp, 
+  ShieldCheck, 
   FileText, 
   Mic, 
-  Award, 
-  RefreshCw, 
   Search, 
-  SlidersHorizontal,
+  Plus, 
+  Database, 
+  Check, 
+  Copy, 
+  X, 
+  ExternalLink,
+  Calendar,
   Sparkles,
   ArrowRight,
-  ExternalLink,
-  Database,
-  Copy,
-  Check,
-  X,
-  Plus
+  Clock,
+  Award
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -44,13 +42,14 @@ export default function AdminDashboard() {
     adminCreateTeacher,
     adminCreateParent,
     adminCreateClass,
-    resetToDefaultData,
     isSupabaseConnected
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<"progress" | "students" | "teachers" | "parents" | "classes" | "assignments" | "invoices">("progress");
+  type AdminView = "overview" | "students" | "teachers" | "parents" | "classes" | "assignments" | "invoices";
+  const [activeView, setActiveView] = useState<AdminView>("overview");
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedStudentForModal, setSelectedStudentForModal] = useState<string | null>(null);
+
+  // Modals
   const [showDbModal, setShowDbModal] = useState(false);
   const [showAddStudentModal, setShowAddStudentModal] = useState(false);
   const [showAddTeacherModal, setShowAddTeacherModal] = useState(false);
@@ -83,7 +82,37 @@ export default function AdminDashboard() {
   const [newClassTime, setNewClassTime] = useState("4:00 PM WAT");
   const [newClassPlatform, setNewClassPlatform] = useState<"google-meet" | "zoom">("google-meet");
 
-  // Handlers for adding new entities
+  // Metrics
+  const totalStudents = db.students.length;
+  const totalTeachers = db.teachers.length;
+  const totalParents = db.parents.length;
+  const totalClasses = db.classes.length;
+  const totalRevenueUSD = db.invoices.reduce((acc, inv) => acc + (inv.status === "Paid" ? inv.amountUSD : 0), 0);
+  const totalRevenueNGN = db.invoices.reduce((acc, inv) => acc + (inv.status === "Paid" ? inv.amountNGN : 0), 0);
+
+  const avgAttendance = totalStudents > 0
+    ? Math.round(db.students.reduce((acc, s) => acc + s.attendanceRate, 0) / totalStudents)
+    : 0;
+
+  const gradedAssignments = db.assignments.filter((a) => a.status === "graded");
+  const avgGrade = gradedAssignments.length > 0 
+    ? Math.round(gradedAssignments.reduce((acc, a) => acc + (a.grade?.score || 0), 0) / gradedAssignments.length)
+    : 0;
+
+  // Filtered students
+  const filteredStudents = db.students.filter((s) => {
+    const q = searchQuery.toLowerCase();
+    const parent = db.parents.find((p) => p.id === s.parentId);
+    const teacher = db.teachers.find((t) => t.id === s.assignedTeacherId);
+    return (
+      s.name.toLowerCase().includes(q) ||
+      s.enrolledLanguage.toLowerCase().includes(q) ||
+      (parent && parent.name.toLowerCase().includes(q)) ||
+      (teacher && teacher.name.toLowerCase().includes(q))
+    );
+  });
+
+  // Handlers
   const handleCreateStudent = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newStudentName.trim()) return;
@@ -201,1585 +230,1080 @@ export default function AdminDashboard() {
     setShowAddClassModal(false);
   };
 
-  // High-level calculations
-  const totalStudents = db.students.length;
-  const totalParents = db.parents.length;
-  const totalTeachers = db.teachers.length;
-  const totalClasses = db.classes.length;
-  const totalRevenueUSD = db.invoices.reduce((acc, inv) => acc + (inv.status === "Paid" ? inv.amountUSD : 0), 0);
-  const totalRevenueNGN = db.invoices.reduce((acc, inv) => acc + (inv.status === "Paid" ? inv.amountNGN : 0), 0);
-
-  const avgAttendance = totalStudents > 0
-    ? Math.round(db.students.reduce((acc, s) => acc + s.attendanceRate, 0) / totalStudents)
-    : 0;
-
-  const gradedAssignments = db.assignments.filter((a) => a.status === "graded");
-  const avgGrade = gradedAssignments.length > 0 
-    ? Math.round(gradedAssignments.reduce((acc, a) => acc + (a.grade?.score || 0), 0) / gradedAssignments.length)
-    : 0;
-
-  // Filter students based on search
-  const filteredStudents = db.students.filter((s) => {
-    const q = searchQuery.toLowerCase();
-    const parent = db.parents.find((p) => p.id === s.parentId);
-    const teacher = db.teachers.find((t) => t.id === s.assignedTeacherId);
-    return (
-      s.name.toLowerCase().includes(q) ||
-      s.enrolledLanguage.toLowerCase().includes(q) ||
-      (parent && parent.name.toLowerCase().includes(q)) ||
-      (teacher && teacher.name.toLowerCase().includes(q))
-    );
-  });
-
   return (
-    <div className={styles.container}>
-      {/* Top Navbar */}
-      <nav className={styles.topNav}>
-        <div className={`container ${styles.navInner}`}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Link href="/" className={styles.logo} style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
-              <Image src="/logo.png" alt="Logo" width={38} height={38} style={{ borderRadius: "50%", border: "2px solid #e0b034" }} />
-              <span>Nija Language Hub</span>
-            </Link>
-            <span className={styles.badgeRole}>Super Admin Command Center</span>
+    <AuthGuard requiredRole="admin" portalName="Super Admin Control Center">
+      <div className={styles.appShell}>
+      {/* 1. LEFT ADMIN SIDEBAR */}
+      <aside className={styles.sidebar}>
+        <div className={styles.sidebarHeader}>
+          <Link href="/" className={styles.brandLink}>
+            <Image src="/logo.png" alt="Logo" width={38} height={38} className={styles.brandLogo} />
+            <div>
+              <div className={styles.brandName}>Nija Language Hub</div>
+              <div className={styles.brandSub}>Executive Administration</div>
+            </div>
+          </Link>
+          <span className={styles.roleBadge}>Super Admin Command</span>
+        </div>
+
+        <nav className={styles.sidebarNav}>
+          <div className={styles.navSectionLabel}>Executive Desk</div>
+          
+          <button
+            onClick={() => setActiveView("overview")}
+            className={`${styles.navButton} ${activeView === "overview" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <TrendingUp size={18} />
+              <span>Overview & KPIs</span>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setActiveView("students")}
+            className={`${styles.navButton} ${activeView === "students" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <Users size={18} />
+              <span>Learners & Progress</span>
+            </div>
+            <span className={styles.navCount}>{totalStudents}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveView("teachers")}
+            className={`${styles.navButton} ${activeView === "teachers" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <GraduationCap size={18} />
+              <span>Faculty & Teachers</span>
+            </div>
+            <span className={styles.navCount}>{totalTeachers}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveView("parents")}
+            className={`${styles.navButton} ${activeView === "parents" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <UserCheck size={18} />
+              <span>Parents & Families</span>
+            </div>
+            <span className={styles.navCount}>{totalParents}</span>
+          </button>
+
+          <div className={styles.navSectionLabel}>Operations & Academics</div>
+
+          <button
+            onClick={() => setActiveView("classes")}
+            className={`${styles.navButton} ${activeView === "classes" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <Video size={18} />
+              <span>Class Timetable</span>
+            </div>
+            <span className={styles.navCount}>{totalClasses}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveView("assignments")}
+            className={`${styles.navButton} ${activeView === "assignments" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <BookOpen size={18} />
+              <span>Grading Audit</span>
+            </div>
+            <span className={styles.navCount}>{db.assignments.length}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveView("invoices")}
+            className={`${styles.navButton} ${activeView === "invoices" ? styles.navButtonActive : ""}`}
+          >
+            <div className={styles.navButtonInner}>
+              <CreditCard size={18} />
+              <span>Tuition Ledger</span>
+            </div>
+            <span className={styles.navCount}>{db.invoices.length}</span>
+          </button>
+        </nav>
+
+        {/* Sidebar Footer */}
+        <div className={styles.sidebarFooter}>
+          <div className={styles.adminProfilePill}>
+            <div className={styles.adminAvatar}>NB</div>
+            <div className={styles.adminProfileText}>
+              <div className={styles.adminName}>Dr. Ngozi Balogun</div>
+              <div className={styles.adminTitle}>Academic Director</div>
+            </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <button
-              onClick={() => setShowDbModal(true)}
-              style={{
-                backgroundColor: isSupabaseConnected ? "rgba(34, 197, 94, 0.15)" : "rgba(147, 51, 234, 0.18)",
-                color: isSupabaseConnected ? "#86efac" : "#d8b4fe",
-                border: isSupabaseConnected ? "1px solid #22c55e" : "1px solid #a855f7",
-                padding: "5px 12px",
-                borderRadius: "6px",
-                fontSize: "0.75rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "6px",
-                fontWeight: 700
-              }}
-            >
-              <Database size={13} color={isSupabaseConnected ? "#86efac" : "#d8b4fe"} />
-              <span>{isSupabaseConnected ? "Supabase Live Connected" : "Supabase Database (PostgreSQL)"}</span>
-            </button>
-
-            {/* Quick Portal Switcher */}
-            <span style={{ fontSize: "0.75rem", color: "#94a3b8", fontWeight: 600 }}>Portals:</span>
-            <Link
-              href="/parent"
-              onClick={() => switchUser("parent", db.parents[0]?.id)}
-              style={{
-                backgroundColor: "rgba(255,255,255,0.08)",
-                color: "#e2e8f0",
-                border: "1px solid rgba(255,255,255,0.15)",
-                padding: "4px 10px",
-                borderRadius: "6px",
-                fontSize: "0.75rem",
-                textDecoration: "none"
-              }}
-            >
-              Parent View
+          <div className={styles.portalsSwitcher}>
+            <span style={{ fontSize: "0.68rem", color: "#64748b", textTransform: "uppercase", fontWeight: 700, paddingLeft: "4px" }}>
+              Quick View Portals
+            </span>
+            <Link href="/parent" onClick={() => switchUser("parent", db.parents[0]?.id)} className={styles.portalLink}>
+              <span>👨‍👩‍👧</span> Parent Portal
             </Link>
-
-            <Link
-              href="/staff"
-              onClick={() => switchUser("teacher", db.teachers[0]?.id)}
-              style={{
-                backgroundColor: "rgba(255,255,255,0.08)",
-                color: "#86efac",
-                border: "1px solid rgba(255,255,255,0.15)",
-                padding: "4px 10px",
-                borderRadius: "6px",
-                fontSize: "0.75rem",
-                textDecoration: "none"
-              }}
-            >
-              Teacher View
+            <Link href="/staff" onClick={() => switchUser("teacher", db.teachers[0]?.id)} className={styles.portalLink}>
+              <span>🧑‍🏫</span> Teacher Portal
             </Link>
-
-            <Link
-              href="/student"
-              onClick={() => switchUser("student", db.students[0]?.id)}
-              style={{
-                backgroundColor: "rgba(255,255,255,0.08)",
-                color: "#fde047",
-                border: "1px solid rgba(255,255,255,0.15)",
-                padding: "4px 10px",
-                borderRadius: "6px",
-                fontSize: "0.75rem",
-                textDecoration: "none"
-              }}
-            >
-              Student View
+            <Link href="/student" onClick={() => switchUser("student", db.students[0]?.id)} className={styles.portalLink}>
+              <span>🎓</span> Student Portal
             </Link>
-
-            <button
-              onClick={() => {
-                if (confirm("Reset all test database records back to original state?")) {
-                  resetToDefaultData();
-                }
-              }}
-              title="Reset Database"
-              style={{
-                background: "none",
-                border: "1px solid #475569",
-                color: "#94a3b8",
-                padding: "4px 8px",
-                borderRadius: "6px",
-                fontSize: "0.75rem",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                gap: "4px"
-              }}
-            >
-              <RefreshCw size={12} /> Reset Data
-            </button>
           </div>
         </div>
-      </nav>
+      </aside>
 
-      {/* Main Content */}
-      <main className={styles.mainContent}>
-        <div className="container">
-          {/* Admin Hero Header */}
-          <div className={styles.heroProfile}>
-            <div className={styles.profileInfo}>
-              <div className={styles.avatar}>
-                <ShieldCheck size={36} />
-              </div>
-              <div>
-                <span style={{ fontSize: "0.8rem", textTransform: "uppercase", letterSpacing: "0.08em", color: "#f472b6", fontWeight: 700 }}>
-                  Centralized Multi-Portal Administration & RBAC
-                </span>
-                <h1 className={styles.greetingTitle}>Dr. Ngozi Balogun</h1>
-                <p style={{ color: "#e2e8f0", margin: 0, fontSize: "0.95rem" }}>
-                  Director of Academics & Hub Operations • 360° Real-Time Academic Visibility
-                </p>
-                <p style={{ color: "#94a3b8", fontSize: "0.8rem", marginTop: "4px" }}>
-                  Strict privacy enforced: Parents cannot view teachers, teachers cannot view parents or financial ledgers.
-                </p>
-              </div>
-            </div>
-
-            {/* Global Metrics Bar */}
-            <div className={styles.statsBar}>
-              <div className={styles.statItem}>
-                <div className={styles.statVal} style={{ color: "#a78bfa" }}>
-                  <Users size={18} /> {totalStudents}
-                </div>
-                <div className={styles.statLabel}>Learners</div>
-              </div>
-              <div style={{ width: "1px", backgroundColor: "rgba(255,255,255,0.15)" }}></div>
-              <div className={styles.statItem}>
-                <div className={styles.statVal} style={{ color: "#86efac" }}>
-                  <GraduationCap size={18} /> {totalTeachers}
-                </div>
-                <div className={styles.statLabel}>Educators</div>
-              </div>
-              <div style={{ width: "1px", backgroundColor: "rgba(255,255,255,0.15)" }}></div>
-              <div className={styles.statItem}>
-                <div className={styles.statVal} style={{ color: "#fde047" }}>
-                  <TrendingUp size={18} /> {avgGrade > 0 ? `${avgGrade}%` : "—"}
-                </div>
-                <div className={styles.statLabel}>Avg Grade</div>
-              </div>
-              <div style={{ width: "1px", backgroundColor: "rgba(255,255,255,0.15)" }}></div>
-              <div className={styles.statItem}>
-                <div className={styles.statVal} style={{ color: "#38bdf8" }}>
-                  <CreditCard size={18} /> ${totalRevenueUSD}
-                </div>
-                <div className={styles.statLabel}>Tuition Paid</div>
-              </div>
-            </div>
+      {/* 2. MAIN VIEWPORT */}
+      <div className={styles.mainViewport}>
+        {/* Top Control Bar */}
+        <header className={styles.topBar}>
+          <div className={styles.searchBox}>
+            <Search size={16} className={styles.searchIcon} />
+            <input
+              type="text"
+              placeholder="Search students, faculty, languages or parents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={styles.searchInput}
+            />
           </div>
 
-          {/* Navigation Tabs */}
-          <div className={styles.tabList}>
-            <button
-              className={`${styles.tabBtn} ${activeTab === "progress" ? styles.activeTabBtn : ""}`}
-              onClick={() => setActiveTab("progress")}
-            >
-              <TrendingUp size={16} /> All Student Progress & Oversight
+          <div className={styles.topBarActions}>
+            <button onClick={() => setShowDbModal(true)} className={styles.dbPill}>
+              <Database size={13} color={isSupabaseConnected ? "#16a34a" : "#ca8a04"} />
+              <span>{isSupabaseConnected ? "Supabase Live" : "PostgreSQL Ready"}</span>
             </button>
+
             <button
-              className={`${styles.tabBtn} ${activeTab === "teachers" ? styles.activeTabBtn : ""}`}
-              onClick={() => setActiveTab("teachers")}
+              onClick={() => setShowAddStudentModal(true)}
+              className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}
             >
-              <GraduationCap size={16} /> Faculty & Teachers ({totalTeachers})
+              <Plus size={15} /> Add Learner
             </button>
+
             <button
-              className={`${styles.tabBtn} ${activeTab === "parents" ? styles.activeTabBtn : ""}`}
-              onClick={() => setActiveTab("parents")}
+              onClick={() => setShowAddTeacherModal(true)}
+              className={`${styles.actionBtn} ${styles.actionBtnOutline}`}
             >
-              <UserCheck size={16} /> Parents & Guardians ({totalParents})
+              <Plus size={15} /> Add Educator
             </button>
+
             <button
-              className={`${styles.tabBtn} ${activeTab === "classes" ? styles.activeTabBtn : ""}`}
-              onClick={() => setActiveTab("classes")}
+              onClick={() => setShowAddClassModal(true)}
+              className={`${styles.actionBtn} ${styles.actionBtnOutline}`}
             >
-              <Video size={16} /> Master Class Schedule ({totalClasses})
-            </button>
-            <button
-              className={`${styles.tabBtn} ${activeTab === "assignments" ? styles.activeTabBtn : ""}`}
-              onClick={() => setActiveTab("assignments")}
-            >
-              <BookOpen size={16} /> Assignments & Grading Audit ({db.assignments.length})
-            </button>
-            <button
-              className={`${styles.tabBtn} ${activeTab === "invoices" ? styles.activeTabBtn : ""}`}
-              onClick={() => setActiveTab("invoices")}
-            >
-              <CreditCard size={16} /> Financial Ledger ({db.invoices.length})
+              <Plus size={15} /> Schedule Class
             </button>
           </div>
+        </header>
 
-          {/* Search & Actions Bar */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px", flexWrap: "wrap", gap: "12px" }}>
-            <div style={{ position: "relative", minWidth: "300px", flex: 1, maxWidth: "450px" }}>
-              <Search size={16} color="var(--color-gray-400)" style={{ position: "absolute", left: "14px", top: "50%", transform: "translateY(-50%)" }} />
-              <input
-                type="text"
-                placeholder="Search by student, language, teacher or parent..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px 14px 10px 38px",
-                  borderRadius: "var(--radius-md)",
-                  border: "1px solid var(--color-gray-300)",
-                  fontSize: "0.88rem",
-                  backgroundColor: "white"
-                }}
-              />
-            </div>
-
-            {/* Quick Action Buttons for adding real data */}
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <button
-                onClick={() => setShowAddStudentModal(true)}
-                className="btn btn-primary"
-                style={{ fontSize: "0.82rem", padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: "6px" }}
-              >
-                <Plus size={15} /> Add Learner
-              </button>
-              <button
-                onClick={() => setShowAddTeacherModal(true)}
-                className="btn btn-outline"
-                style={{ fontSize: "0.82rem", padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: "6px", backgroundColor: "white" }}
-              >
-                <Plus size={15} /> Add Educator
-              </button>
-              <button
-                onClick={() => setShowAddClassModal(true)}
-                className="btn btn-outline"
-                style={{ fontSize: "0.82rem", padding: "8px 14px", display: "inline-flex", alignItems: "center", gap: "6px", backgroundColor: "white" }}
-              >
-                <Plus size={15} /> Schedule Class
-              </button>
-            </div>
-          </div>
-
-          {/* TAB 1: ALL STUDENT PROGRESS (Primary User Requirement) */}
-          {activeTab === "progress" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-              {filteredStudents.length === 0 ? (
-                <div className={styles.cardFloating} style={{ padding: "48px 24px", textAlign: "center" }}>
-                  <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "#f3e8ff", color: "#9333ea", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-                    <Users size={28} />
-                  </div>
-                  <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--color-secondary)", marginBottom: "6px" }}>
-                    No Student Records in Database
-                  </h3>
-                  <p style={{ color: "var(--color-gray-600)", maxWidth: "480px", margin: "0 auto 20px", fontSize: "0.9rem" }}>
-                    All mock data has been wiped clean. Click &quot;Add Learner&quot; below to register real students directly into Supabase.
+        {/* 3. PAGE BODY CONTENT */}
+        <main className={styles.pageBody}>
+          {/* VIEW: OVERVIEW & KPIS */}
+          {activeView === "overview" && (
+            <div>
+              <div className={styles.viewHeader}>
+                <div>
+                  <h1 className={styles.viewTitle}>Executive Command Center</h1>
+                  <p className={styles.viewSubtitle}>
+                    Real-time operational visibility across diaspora learners, certified educators, and live lessons.
                   </p>
-                  <button
-                    onClick={() => setShowAddStudentModal(true)}
-                    className="btn btn-primary"
-                    style={{ display: "inline-flex", alignItems: "center", gap: "6px", margin: "0 auto" }}
-                  >
-                    <Plus size={16} /> Register First Learner
+                </div>
+              </div>
+
+              {/* 4 Metric Cards */}
+              <div className={styles.metricsGrid}>
+                <div className={styles.metricCard}>
+                  <div className={styles.metricHeader}>
+                    <span className={styles.metricLabel}>Enrolled Learners</span>
+                    <div className={styles.metricIcon} style={{ background: "#f3e8ff", color: "#9333ea" }}>
+                      <Users size={20} />
+                    </div>
+                  </div>
+                  <div className={styles.metricValue}>{totalStudents}</div>
+                  <div className={styles.metricFooter}>
+                    Attendance Average: <strong>{avgAttendance}%</strong>
+                  </div>
+                </div>
+
+                <div className={styles.metricCard}>
+                  <div className={styles.metricHeader}>
+                    <span className={styles.metricLabel}>Certified Educators</span>
+                    <div className={styles.metricIcon} style={{ background: "#ecfdf5", color: "#16a34a" }}>
+                      <GraduationCap size={20} />
+                    </div>
+                  </div>
+                  <div className={styles.metricValue}>{totalTeachers}</div>
+                  <div className={styles.metricFooter}>
+                    Languages: <strong>Yoruba, Igbo, Hausa, Edo</strong>
+                  </div>
+                </div>
+
+                <div className={styles.metricCard}>
+                  <div className={styles.metricHeader}>
+                    <span className={styles.metricLabel}>Scheduled Sessions</span>
+                    <div className={styles.metricIcon} style={{ background: "#e0f2fe", color: "#0284c7" }}>
+                      <Video size={20} />
+                    </div>
+                  </div>
+                  <div className={styles.metricValue}>{totalClasses}</div>
+                  <div className={styles.metricFooter}>
+                    Platform: <strong>Zoom Pro & Google Meet</strong>
+                  </div>
+                </div>
+
+                <div className={styles.metricCard}>
+                  <div className={styles.metricHeader}>
+                    <span className={styles.metricLabel}>Tuition Revenue</span>
+                    <div className={styles.metricIcon} style={{ background: "#fef3c7", color: "#d97706" }}>
+                      <CreditCard size={20} />
+                    </div>
+                  </div>
+                  <div className={styles.metricValue}>${totalRevenueUSD}</div>
+                  <div className={styles.metricFooter}>
+                    In Local Currency: <strong>₦{totalRevenueNGN.toLocaleString()}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Launchpad & Live Timetable Preview */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px", marginTop: "24px" }}>
+                {/* Today's Live Lessons */}
+                <div style={{ background: "white", padding: "24px", borderRadius: "14px", border: "1px solid #e2e8f0" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
+                    <h3 style={{ margin: 0, fontSize: "1.05rem", fontWeight: 700 }}>Upcoming Live Classes</h3>
+                    <button onClick={() => setActiveView("classes")} style={{ background: "none", border: "none", color: "#3b82f6", fontSize: "0.82rem", fontWeight: 600, cursor: "pointer" }}>
+                      View All →
+                    </button>
+                  </div>
+
+                  {db.classes.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "32px 16px", color: "#64748b" }}>
+                      <p style={{ margin: "0 0 12px", fontSize: "0.88rem" }}>No classes currently scheduled.</p>
+                      <button onClick={() => setShowAddClassModal(true)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`} style={{ margin: "0 auto", fontSize: "0.8rem" }}>
+                        + Schedule First Class
+                      </button>
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                      {db.classes.slice(0, 3).map((cls) => (
+                        <div key={cls.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", borderRadius: "8px", background: "#f8fafc", border: "1px solid #f1f5f9" }}>
+                          <div>
+                            <strong style={{ fontSize: "0.88rem", display: "block" }}>{cls.title}</strong>
+                            <span style={{ fontSize: "0.78rem", color: "#64748b" }}>{cls.teacherName} • {cls.studentName} ({cls.date} at {cls.time})</span>
+                          </div>
+                          <button onClick={() => openMeetingLauncher(cls)} className="btn btn-primary" style={{ fontSize: "0.75rem", padding: "5px 10px" }}>
+                            Launch
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* System Status & Privacy Policy Card */}
+                <div style={{ background: "white", padding: "24px", borderRadius: "14px", border: "1px solid #e2e8f0" }}>
+                  <h3 style={{ margin: "0 0 12px", fontSize: "1.05rem", fontWeight: 700 }}>Privacy & Multi-Role Security</h3>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "10px", fontSize: "0.84rem", color: "#475569" }}>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                      <Check size={16} color="#16a34a" style={{ flexShrink: 0, marginTop: "2px" }} />
+                      <span><strong>Teacher Isolation:</strong> Educators only see their assigned learners; parent identities and tuition financials are hidden.</span>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                      <Check size={16} color="#16a34a" style={{ flexShrink: 0, marginTop: "2px" }} />
+                      <span><strong>Parent Privacy:</strong> Parents only see their enrolled children and tuition statements. Other families are blocked.</span>
+                    </div>
+                    <div style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+                      <Check size={16} color="#16a34a" style={{ flexShrink: 0, marginTop: "2px" }} />
+                      <span><strong>Student Protection:</strong> Kids access lessons and gamified tasks with zero access to billing or peer grades.</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* VIEW: LEARNERS & PROGRESS */}
+          {activeView === "students" && (
+            <div>
+              <div className={styles.viewHeader}>
+                <div>
+                  <h1 className={styles.viewTitle}>Learners Directory & Academic Oversight</h1>
+                  <p className={styles.viewSubtitle}>
+                    Monitor attendance, track academic progress, and reassign native educators.
+                  </p>
+                </div>
+                <button onClick={() => setShowAddStudentModal(true)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>
+                  <Plus size={15} /> Enroll Learner
+                </button>
+              </div>
+
+              {filteredStudents.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>🎓</div>
+                  <h3 className={styles.emptyTitle}>No Student Records in Database</h3>
+                  <p className={styles.emptyDesc}>
+                    All mock records have been wiped clean. Register real diaspora learners to begin tracking lessons and grades.
+                  </p>
+                  <button onClick={() => setShowAddStudentModal(true)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`} style={{ margin: "0 auto" }}>
+                    <Plus size={15} /> Register First Learner
                   </button>
                 </div>
               ) : (
-                filteredStudents.map((st) => {
-                  const parent = db.parents.find((p) => p.id === st.parentId);
-                  const teacher = db.teachers.find((t) => t.id === st.assignedTeacherId);
-                  const studentAssignments = db.assignments.filter((a) => a.studentId === st.id);
-                  const studentGraded = studentAssignments.filter((a) => a.status === "graded");
-                  const avgScore = studentGraded.length > 0
-                    ? Math.round(studentGraded.reduce((acc, a) => acc + (a.grade?.score || 0), 0) / studentGraded.length)
-                    : 0;
-                  const studentClasses = db.classes.filter((c) => c.studentId === st.id);
-                  const studentInvoices = db.invoices.filter((inv) => inv.studentId === st.id);
-
-                  return (
-                    <div key={st.id} className={styles.cardFloating} style={{ borderLeft: "5px solid #9333ea" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "16px", marginBottom: "16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                        <div style={{
-                          width: "52px",
-                          height: "52px",
-                          borderRadius: "50%",
-                          background: "var(--color-primary-light)",
-                          color: "var(--color-primary)",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          fontSize: "1.4rem",
-                          fontWeight: 800
-                        }}>
-                          {st.avatarLetter}
-                        </div>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, margin: 0, color: "var(--color-secondary)" }}>
-                              {st.name}
-                            </h2>
-                            <span style={{ fontSize: "0.75rem", backgroundColor: "#f3e8ff", color: "#7e22ce", padding: "2px 8px", borderRadius: "10px", fontWeight: 700 }}>
-                              Age {st.age}
-                            </span>
-                            <span style={{ fontSize: "0.75rem", backgroundColor: "#dcfce7", color: "#166534", padding: "2px 8px", borderRadius: "10px", fontWeight: 700 }}>
-                              {st.level}
-                            </span>
-                          </div>
-                          <p style={{ margin: "2px 0 0", fontSize: "0.85rem", color: "var(--color-gray-600)" }}>
-                            Enrolled: <strong>{st.enrolledLanguage}</strong> • Email: {st.email}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Standing Pill */}
-                      <div style={{ textAlign: "right" }}>
-                        {avgScore > 0 ? (
-                          <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "#16a34a", backgroundColor: "#dcfce7", padding: "6px 14px", borderRadius: "20px" }}>
-                            Academic Standing: {avgScore >= 90 ? "A+" : avgScore >= 80 ? "A" : avgScore >= 70 ? "B" : "Passing"} ({avgScore}%)
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--color-gray-600)", backgroundColor: "var(--color-gray-100)", padding: "6px 14px", borderRadius: "20px" }}>
-                            Enrolled • Awaiting First Assessment
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Progress Detail Cards */}
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-                      gap: "12px",
-                      backgroundColor: "#f8fafc",
-                      padding: "16px",
-                      borderRadius: "var(--radius-md)",
-                      marginBottom: "16px"
-                    }}>
-                      <div>
-                        <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-500)" }}>
-                          Attendance Rate
-                        </span>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "var(--color-secondary)" }}>
-                          {st.attendanceRate}%
-                        </div>
-                        <div style={{ height: "6px", backgroundColor: "#e2e8f0", borderRadius: "4px", marginTop: "4px", overflow: "hidden" }}>
-                          <div style={{ height: "100%", width: `${st.attendanceRate}%`, backgroundColor: "#16a34a" }}></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-500)" }}>
-                          Study Streak & XP
-                        </span>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#ea580c" }}>
-                          {st.streakDays} Days 🔥
-                        </div>
-                        <span style={{ fontSize: "0.75rem", color: "var(--color-gray-600)" }}>
-                          {st.xpPoints.toLocaleString()} XP accumulated
-                        </span>
-                      </div>
-
-                      <div>
-                        <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-500)" }}>
-                          Assignments Completed
-                        </span>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#2563eb" }}>
-                          {studentGraded.length} / {studentAssignments.length}
-                        </div>
-                        <span style={{ fontSize: "0.75rem", color: "var(--color-gray-600)" }}>
-                          {studentAssignments.filter(a => a.status === "submitted").length} awaiting grading
-                        </span>
-                      </div>
-
-                      <div>
-                        <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-gray-500)" }}>
-                          Cultural Badges
-                        </span>
-                        <div style={{ fontSize: "1.3rem", fontWeight: 800, color: "#ca8a04" }}>
-                          {st.badges?.length || 0} Badges 🏆
-                        </div>
-                        <span style={{ fontSize: "0.75rem", color: "var(--color-gray-600)" }}>
-                          Latest: {st.badges?.[st.badges.length - 1]?.name || "Explorer"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Linked Parent & Assigned Teacher Info (Admin Visibility) */}
-                    <div style={{
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr",
-                      gap: "16px",
-                      borderTop: "1px solid var(--color-gray-200)",
-                      paddingTop: "16px"
-                    }}>
-                      {/* Parent Section */}
-                      <div style={{ backgroundColor: "#fef3c7", padding: "14px", borderRadius: "var(--radius-md)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "#92400e" }}>
-                            Linked Parent / Guardian (Private)
-                          </span>
-                          <span style={{ fontSize: "0.7rem", backgroundColor: "#16a34a", color: "white", padding: "2px 6px", borderRadius: "4px", fontWeight: 700 }}>
-                            {parent?.billingStatus || "Active"}
-                          </span>
-                        </div>
-                        <h4 style={{ margin: "2px 0", fontSize: "0.95rem", fontWeight: 700, color: "#78350f" }}>
-                          {parent?.name || "Guardian"}
-                        </h4>
-                        <p style={{ margin: 0, fontSize: "0.8rem", color: "#92400e" }}>
-                          {parent?.email} • {parent?.phone} ({parent?.city}, {parent?.country})
-                        </p>
-                        <p style={{ margin: "4px 0 0", fontSize: "0.75rem", color: "#b45309" }}>
-                          Total Tuition Paid: ${studentInvoices.reduce((acc, inv) => acc + inv.amountUSD, 0)} ({studentInvoices.length} invoices)
-                        </p>
-                      </div>
-
-                      {/* Teacher Section & Real-Time Reassignment */}
-                      <div style={{ backgroundColor: "#ecfdf5", padding: "14px", borderRadius: "var(--radius-md)" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "#065f46" }}>
-                            Assigned Faculty Educator
-                          </span>
-                          <span style={{ fontSize: "0.7rem", color: "#047857", fontWeight: 600 }}>
-                            Rating: {teacher?.rating || 4.9} ★
-                          </span>
-                        </div>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "10px" }}>
-                          <div>
-                            <h4 style={{ margin: "2px 0", fontSize: "0.95rem", fontWeight: 700, color: "#064e3b" }}>
-                              {teacher?.name || "Assigned Teacher"}
-                            </h4>
-                            <p style={{ margin: 0, fontSize: "0.8rem", color: "#065f46" }}>
-                              {teacher?.title} • {teacher?.phone}
-                            </p>
-                          </div>
-
-                          {/* Teacher Reassignment Dropdown */}
-                          <div style={{ display: "flex", flexDirection: "column", gap: "2px" }}>
-                            <label style={{ fontSize: "0.68rem", color: "#047857", fontWeight: 700 }}>Reassign Teacher:</label>
-                            <select
-                              value={st.assignedTeacherId}
-                              onChange={(e) => adminAssignTeacher(st.id, e.target.value)}
-                              style={{
-                                padding: "4px 8px",
-                                borderRadius: "6px",
-                                border: "1px solid #10b981",
-                                fontSize: "0.75rem",
-                                backgroundColor: "white",
-                                color: "#064e3b",
-                                fontWeight: 600
-                              }}
-                            >
-                              {db.teachers.map((t) => (
-                                <option key={t.id} value={t.id}>
-                                  {t.name} ({t.languagesTaught[0]?.split(" ")[0] || "Language"})
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Next Class Action */}
-                    {studentClasses[0] && (
-                      <div style={{
-                        marginTop: "16px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        backgroundColor: "#faf5ff",
-                        padding: "10px 14px",
-                        borderRadius: "8px",
-                        border: "1px solid #e9d5ff"
-                      }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "#6b21a8" }}>
-                          <Video size={15} color="#9333ea" />
-                          <span>
-                            Next Live Class: <strong>{studentClasses[0].title}</strong> ({studentClasses[0].date} at {studentClasses[0].time})
-                          </span>
-                        </div>
-                        <button
-                          onClick={() => openMeetingLauncher(studentClasses[0])}
-                          className="btn btn-outline"
-                          style={{ fontSize: "0.75rem", padding: "4px 10px" }}
-                        >
-                          Supervise / Launch Meeting
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              }))}
-            </div>
-          )}
-
-          {/* TAB 2: TEACHERS & FACULTY */}
-          {activeTab === "teachers" && (
-            <div className={styles.tableWrapper}>
-              <table className={styles.dataTable}>
-                <thead>
-                  <tr>
-                    <th>Educator</th>
-                    <th>Languages Taught</th>
-                    <th>Active Students</th>
-                    <th>Classes Completed</th>
-                    <th>Rating</th>
-                    <th>Direct Contact</th>
-                    <th>Qualifications</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {db.teachers.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "48px 24px", color: "var(--color-gray-500)" }}>
-                        <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🧑‍🏫</div>
-                        <h4 style={{ margin: "0 0 6px", color: "var(--color-secondary)", fontSize: "1.05rem" }}>No Educators Registered Yet</h4>
-                        <p style={{ margin: "0 0 16px", fontSize: "0.85rem" }}>Onboard your first native Nigerian language teacher to start scheduling lessons.</p>
-                        <button onClick={() => setShowAddTeacherModal(true)} className="btn btn-primary" style={{ fontSize: "0.8rem", padding: "8px 16px" }}>
-                          + Onboard First Educator
-                        </button>
-                      </td>
-                    </tr>
-                  ) : (
-                    db.teachers.map((t) => (
-                      <tr key={t.id}>
-                        <td>
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "#15803d", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
-                              {t.avatarLetters}
-                            </div>
-                            <div>
-                              <strong>{t.name}</strong>
-                              <div style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>{t.title}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-                            {t.languagesTaught.map((lang, idx) => (
-                              <span key={idx} style={{ backgroundColor: "#f0fdf4", color: "#166534", padding: "2px 6px", borderRadius: "6px", fontSize: "0.72rem", border: "1px solid #bbf7d0" }}>
-                                {lang}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                        <td>
-                          <strong>{t.assignedStudentIds.length} Assigned</strong>
-                          <div style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>
-                            {t.assignedStudentIds.map(sid => db.students.find(s => s.id === sid)?.name).filter(Boolean).join(", ") || "None"}
-                          </div>
-                        </td>
-                        <td>{t.classesCompleted} Sessions</td>
-                        <td>
-                          <span style={{ color: "#ca8a04", fontWeight: 700 }}>{t.rating} ★</span>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: "0.8rem" }}>{t.email}</div>
-                          <div style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>{t.phone}</div>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: "0.75rem", color: "var(--color-gray-600)", maxWidth: "250px" }}>
-                            {t.qualifications[0]}
-                          </div>
-                        </td>
+                <div className={styles.tableContainer}>
+                  <table className={styles.dataTable}>
+                    <thead>
+                      <tr>
+                        <th>Learner</th>
+                        <th>Language & Track</th>
+                        <th>Linked Guardian</th>
+                        <th>Assigned Educator</th>
+                        <th>Attendance</th>
+                        <th>Badges / XP</th>
+                        <th>Reassign Faculty</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
+                    </thead>
+                    <tbody>
+                      {filteredStudents.map((st) => {
+                        const parent = db.parents.find((p) => p.id === st.parentId);
+                        const teacher = db.teachers.find((t) => t.id === st.assignedTeacherId);
 
-          {/* TAB 3: PARENTS & GUARDIANS */}
-          {activeTab === "parents" && (
-            <div className={styles.tableWrapper}>
-              <table className={styles.dataTable}>
-                <thead>
-                  <tr>
-                    <th>Parent / Guardian</th>
-                    <th>Location</th>
-                    <th>Enrolled Children</th>
-                    <th>Billing Status</th>
-                    <th>Contact Info</th>
-                    <th>Account Created</th>
-                    <th>Total Spend</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {db.parents.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "48px 24px", color: "var(--color-gray-500)" }}>
-                        <div style={{ fontSize: "2rem", marginBottom: "8px" }}>👨‍👩‍👧‍👦</div>
-                        <h4 style={{ margin: "0 0 6px", color: "var(--color-secondary)", fontSize: "1.05rem" }}>No Parents / Guardians Registered</h4>
-                        <p style={{ margin: 0, fontSize: "0.85rem" }}>Parents will appear here when they register their diaspora learners or are added by admin.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    db.parents.map((p) => {
-                      const children = db.students.filter((s) => p.childrenIds.includes(s.id));
-                      const invoices = db.invoices.filter((inv) => inv.parentId === p.id);
-                      const totalSpend = invoices.reduce((acc, inv) => acc + inv.amountUSD, 0);
-
-                      return (
-                        <tr key={p.id}>
-                          <td>
-                            <strong>{p.name}</strong>
-                            <div style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>Role: Guardian</div>
-                          </td>
-                          <td>{p.city}, {p.country}</td>
-                          <td>
-                            {children.map((c) => (
-                              <span key={c.id} style={{ display: "inline-block", backgroundColor: "#f3e8ff", color: "#7e22ce", padding: "2px 8px", borderRadius: "10px", fontSize: "0.75rem", fontWeight: 700, marginRight: "4px" }}>
-                                {c.name} ({c.enrolledLanguage.split(" ")[0]})
+                        return (
+                          <tr key={st.id}>
+                            <td>
+                              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                                <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "#f3e8ff", color: "#9333ea", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                                  {st.avatarLetter}
+                                </div>
+                                <div>
+                                  <strong>{st.name}</strong>
+                                  <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Age {st.age} • {st.email}</div>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ background: "#ecfdf5", color: "#166534", padding: "2px 8px", borderRadius: "6px", fontSize: "0.75rem", fontWeight: 700 }}>
+                                {st.enrolledLanguage}
                               </span>
-                            ))}
-                          </td>
-                          <td>
-                            <span style={{ backgroundColor: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700 }}>
-                              {p.billingStatus}
-                            </span>
-                          </td>
-                          <td>
-                            <div style={{ fontSize: "0.8rem" }}>{p.email}</div>
-                            <div style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>{p.phone}</div>
-                          </td>
-                          <td>{p.accountCreated}</td>
-                          <td>
-                            <strong>${totalSpend}</strong>
-                            <div style={{ fontSize: "0.72rem", color: "var(--color-gray-500)" }}>({invoices.length} invoices)</div>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* TAB 4: MASTER CLASS SCHEDULE */}
-          {activeTab === "classes" && (
-            <div className={styles.tableWrapper}>
-              <table className={styles.dataTable}>
-                <thead>
-                  <tr>
-                    <th>Session Title</th>
-                    <th>Language Course</th>
-                    <th>Educator</th>
-                    <th>Learner</th>
-                    <th>Schedule</th>
-                    <th>Platform</th>
-                    <th>Meeting Credentials</th>
-                    <th>Admin Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {db.classes.length === 0 ? (
-                    <tr>
-                      <td colSpan={8} style={{ textAlign: "center", padding: "48px 24px", color: "var(--color-gray-500)" }}>
-                        <div style={{ fontSize: "2rem", marginBottom: "8px" }}>🗓️</div>
-                        <h4 style={{ margin: "0 0 6px", color: "var(--color-secondary)", fontSize: "1.05rem" }}>No Scheduled Classes in Session</h4>
-                        <p style={{ margin: "0 0 16px", fontSize: "0.85rem" }}>Create a Zoom or Google Meet classroom link for teachers and students.</p>
-                        <button onClick={() => setShowAddClassModal(true)} className="btn btn-primary" style={{ fontSize: "0.8rem", padding: "8px 16px" }}>
-                          + Schedule New Class
-                        </button>
-                      </td>
-                    </tr>
-                  ) : (
-                    db.classes.map((cls) => (
-                      <tr key={cls.id}>
-                        <td>
-                          <strong>{cls.title}</strong>
-                          <div style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>
-                            Topics: {cls.topics?.slice(0, 2).join(", ")}
-                          </div>
-                        </td>
-                        <td>
-                          <span style={{ backgroundColor: "#fef3c7", color: "#92400e", padding: "2px 6px", borderRadius: "4px", fontSize: "0.75rem", fontWeight: 600 }}>
-                            {cls.language}
-                          </span>
-                        </td>
-                        <td><strong>{cls.teacherName}</strong></td>
-                        <td>{cls.studentName}</td>
-                        <td>
-                          <strong>{cls.date}</strong>
-                          <div style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>{cls.time}</div>
-                        </td>
-                        <td>
-                          <span style={{
-                            backgroundColor: cls.platform === "zoom" ? "#e0f2fe" : "#dcfce7",
-                            color: cls.platform === "zoom" ? "#0369a1" : "#166534",
-                            padding: "3px 8px",
-                            borderRadius: "10px",
-                            fontSize: "0.75rem",
-                            fontWeight: 700
-                          }}>
-                            {cls.platform === "zoom" ? "Zoom Pro" : "Google Meet"}
-                          </span>
-                        </td>
-                        <td>
-                          <div style={{ fontSize: "0.75rem" }}>ID: {cls.meetingId}</div>
-                          <div style={{ fontSize: "0.72rem", color: "var(--color-gray-500)" }}>Passcode: {cls.meetingPasscode}</div>
-                        </td>
-                        <td>
-                          <button
-                            onClick={() => openMeetingLauncher(cls)}
-                            className="btn btn-primary"
-                            style={{ fontSize: "0.75rem", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
-                          >
-                            <Video size={12} /> Launch
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* TAB 5: ASSIGNMENTS & GRADING AUDIT */}
-          {activeTab === "assignments" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-              {db.assignments.length === 0 ? (
-                <div style={{ textAlign: "center", padding: "64px 24px", backgroundColor: "white", borderRadius: "var(--radius-lg)", border: "1px solid var(--color-gray-200)" }}>
-                  <div style={{ fontSize: "2.2rem", marginBottom: "8px" }}>📝</div>
-                  <h4 style={{ margin: "0 0 6px", color: "var(--color-secondary)", fontSize: "1.1rem" }}>No Homework or Assignments Created</h4>
-                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-gray-500)" }}>Assignments created by educators and submissions by students will be audited here in real time.</p>
+                              <div style={{ fontSize: "0.72rem", color: "#64748b", marginTop: "2px" }}>{st.level}</div>
+                            </td>
+                            <td>
+                              <strong>{parent?.name || "Guardian"}</strong>
+                              <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{parent?.city}, {parent?.country}</div>
+                            </td>
+                            <td>
+                              <strong>{teacher?.name || "Unassigned"}</strong>
+                              <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{teacher?.title}</div>
+                            </td>
+                            <td>
+                              <strong>{st.attendanceRate}%</strong>
+                              <div style={{ height: "4px", background: "#e2e8f0", borderRadius: "2px", width: "80px", marginTop: "4px", overflow: "hidden" }}>
+                                <div style={{ height: "100%", width: `${st.attendanceRate}%`, background: "#16a34a" }}></div>
+                              </div>
+                            </td>
+                            <td>
+                              <span style={{ fontSize: "0.82rem", fontWeight: 700, color: "#d97706" }}>
+                                🏆 {st.badges?.length || 0} ({st.xpPoints} XP)
+                              </span>
+                            </td>
+                            <td>
+                              <select
+                                value={st.assignedTeacherId}
+                                onChange={(e) => adminAssignTeacher(st.id, e.target.value)}
+                                style={{ padding: "4px 8px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.75rem" }}
+                              >
+                                {db.teachers.map((t) => (
+                                  <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
-              ) : (
-                db.assignments.map((asg) => {
-                  const student = db.students.find((s) => s.id === asg.studentId);
-                  const teacher = db.teachers.find((t) => t.id === asg.teacherId);
-
-                  return (
-                    <div key={asg.id} className={styles.cardFloating}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
-                        <div>
-                          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                            <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "var(--color-primary)" }}>
-                              {asg.subject}
-                            </span>
-                            <span style={{ color: "var(--color-gray-300)" }}>•</span>
-                            <span style={{ fontSize: "0.78rem", color: "var(--color-gray-600)" }}>
-                              Learner: <strong>{student?.name}</strong> • Graded By: <strong>{teacher?.name}</strong>
-                            </span>
-                          </div>
-                          <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--color-secondary)", margin: "4px 0" }}>
-                            {asg.title}
-                          </h3>
-                          <span style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>
-                            Schedule / Due Date: {asg.dueDate}
-                          </span>
-                        </div>
-
-                        <div>
-                          {asg.status === "graded" && asg.grade && (
-                            <span style={{ backgroundColor: "#dcfce7", color: "#166534", padding: "4px 12px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 800 }}>
-                              Score: {asg.grade.score}/100 ({asg.grade.letter})
-                            </span>
-                          )}
-                          {asg.status === "submitted" && (
-                            <span style={{ backgroundColor: "#fef3c7", color: "#92400e", padding: "4px 12px", borderRadius: "12px", fontSize: "0.8rem", fontWeight: 700 }}>
-                              Awaiting Teacher Review
-                            </span>
-                          )}
-                          {asg.status === "pending" && (
-                            <span style={{ backgroundColor: "var(--color-gray-100)", color: "var(--color-gray-600)", padding: "4px 12px", borderRadius: "12px", fontSize: "0.8rem" }}>
-                              Student Working
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <p style={{ fontSize: "0.85rem", color: "var(--color-gray-700)", margin: "0 0 12px" }}>
-                        {asg.instructions}
-                      </p>
-
-                      {/* Student Response */}
-                      {asg.studentSubmission && (
-                        <div style={{ backgroundColor: "#f8fafc", padding: "12px", borderRadius: "6px", border: "1px solid #e2e8f0", marginBottom: "12px", fontSize: "0.85rem" }}>
-                          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-gray-500)", textTransform: "uppercase", marginBottom: "4px" }}>
-                            Student Submission ({asg.studentSubmission.submittedAt}):
-                          </div>
-                          <p style={{ margin: "0 0 6px", color: "var(--color-gray-800)" }}>
-                            "{asg.studentSubmission.textResponse}"
-                          </p>
-                          <div style={{ display: "flex", gap: "8px" }}>
-                            {asg.studentSubmission.fileName && (
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", backgroundColor: "white", padding: "2px 8px", borderRadius: "8px", border: "1px solid var(--color-gray-300)", fontSize: "0.72rem" }}>
-                                <FileText size={11} color="var(--color-primary)" /> {asg.studentSubmission.fileName}
-                              </span>
-                            )}
-                            {asg.studentSubmission.hasAudioRecording && (
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", backgroundColor: "#fef3c7", padding: "2px 8px", borderRadius: "8px", border: "1px solid #fde68a", fontSize: "0.72rem", color: "#92400e" }}>
-                                <Mic size={11} /> Voice Audio ({asg.studentSubmission.audioDuration})
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Feedback if graded */}
-                      {asg.status === "graded" && asg.grade && (
-                        <div style={{ backgroundColor: "#f0fdf4", padding: "12px", borderRadius: "6px", border: "1px solid #bbf7d0", fontSize: "0.85rem" }}>
-                          <strong style={{ color: "#166534" }}>Teacher Feedback:</strong>
-                          <p style={{ margin: "2px 0 6px", fontStyle: "italic", color: "#166534" }}>
-                            "{asg.grade.feedback}"
-                          </p>
-                          <div style={{ display: "flex", gap: "6px" }}>
-                            {asg.grade.badges?.map((b, i) => (
-                              <span key={i} style={{ backgroundColor: "white", padding: "2px 6px", borderRadius: "8px", border: "1px solid #86efac", fontSize: "0.72rem", color: "#166534" }}>
-                                🏆 {b}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
               )}
             </div>
           )}
 
-          {/* TAB 6: FINANCIAL LEDGER */}
-          {activeTab === "invoices" && (
-            <div className={styles.tableWrapper}>
-              <table className={styles.dataTable}>
-                <thead>
-                  <tr>
-                    <th>Invoice #</th>
-                    <th>Date</th>
-                    <th>Paying Parent</th>
-                    <th>Enrolled Student</th>
-                    <th>Description</th>
-                    <th>Amount (USD)</th>
-                    <th>Amount (NGN)</th>
-                    <th>Payment Method</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {db.invoices.length === 0 ? (
-                    <tr>
-                      <td colSpan={9} style={{ textAlign: "center", padding: "48px 24px", color: "var(--color-gray-500)" }}>
-                        <div style={{ fontSize: "2rem", marginBottom: "8px" }}>💳</div>
-                        <h4 style={{ margin: "0 0 6px", color: "var(--color-secondary)", fontSize: "1.05rem" }}>No Financial Transactions Yet</h4>
-                        <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--color-gray-500)" }}>Tuition invoices and parent online payments will appear in this audited ledger.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    db.invoices.map((inv) => {
-                      const parent = db.parents.find((p) => p.id === inv.parentId);
-                      const student = db.students.find((s) => s.id === inv.studentId);
+          {/* VIEW: FACULTY & TEACHERS */}
+          {activeView === "teachers" && (
+            <div>
+              <div className={styles.viewHeader}>
+                <div>
+                  <h1 className={styles.viewTitle}>Faculty & Native Educators</h1>
+                  <p className={styles.viewSubtitle}>
+                    Accredited native speakers, qualifications, and student assignments.
+                  </p>
+                </div>
+                <button onClick={() => setShowAddTeacherModal(true)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>
+                  <Plus size={15} /> Onboard Educator
+                </button>
+              </div>
 
-                      return (
-                        <tr key={inv.id}>
-                          <td><strong>{inv.invoiceNumber}</strong></td>
-                          <td>{inv.date}</td>
-                          <td>{parent?.name || "Guardian"}</td>
-                          <td>{student?.name || "Student"}</td>
-                          <td style={{ maxWidth: "220px", fontSize: "0.8rem" }}>{inv.description}</td>
-                          <td><strong>${inv.amountUSD}</strong></td>
-                          <td>₦{inv.amountNGN.toLocaleString()}</td>
+              {db.teachers.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>🧑‍🏫</div>
+                  <h3 className={styles.emptyTitle}>No Faculty Registered Yet</h3>
+                  <p className={styles.emptyDesc}>
+                    Onboard native Nigerian language linguists to start conducting live lessons and assigning homework.
+                  </p>
+                  <button onClick={() => setShowAddTeacherModal(true)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`} style={{ margin: "0 auto" }}>
+                    + Onboard First Educator
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.tableContainer}>
+                  <table className={styles.dataTable}>
+                    <thead>
+                      <tr>
+                        <th>Educator</th>
+                        <th>Languages Taught</th>
+                        <th>Assigned Students</th>
+                        <th>Classes Taught</th>
+                        <th>Rating</th>
+                        <th>Contact</th>
+                        <th>Qualifications</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {db.teachers.map((t) => (
+                        <tr key={t.id}>
                           <td>
-                            <span style={{ fontSize: "0.75rem", backgroundColor: "var(--color-gray-100)", padding: "2px 6px", borderRadius: "4px" }}>
-                              {inv.method}
-                            </span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                              <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "#15803d", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+                                {t.avatarLetters}
+                              </div>
+                              <div>
+                                <strong>{t.name}</strong>
+                                <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{t.title}</div>
+                              </div>
+                            </div>
                           </td>
                           <td>
-                            <span style={{ backgroundColor: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700 }}>
-                              {inv.status}
-                            </span>
+                            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
+                              {t.languagesTaught.map((l, i) => (
+                                <span key={i} style={{ background: "#f0fdf4", color: "#166534", padding: "2px 6px", borderRadius: "4px", fontSize: "0.72rem", border: "1px solid #bbf7d0" }}>
+                                  {l}
+                                </span>
+                              ))}
+                            </div>
+                          </td>
+                          <td>
+                            <strong>{t.assignedStudentIds.length} Learners</strong>
+                          </td>
+                          <td>{t.classesCompleted} Sessions</td>
+                          <td><span style={{ color: "#ca8a04", fontWeight: 700 }}>{t.rating} ★</span></td>
+                          <td>
+                            <div style={{ fontSize: "0.8rem" }}>{t.email}</div>
+                            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{t.phone}</div>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: "0.75rem", color: "#475569", maxWidth: "240px" }}>
+                              {t.qualifications[0]}
+                            </div>
                           </td>
                         </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
-          {/* MODAL: SUPABASE DATABASE CONFIGURATION & SCHEMA VIEWER */}
-          {showDbModal && (
-            <div style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.7)",
-              backdropFilter: "blur(4px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 100,
-              padding: "20px"
-            }}>
-              <div style={{
-                backgroundColor: "white",
-                borderRadius: "var(--radius-xl)",
-                maxWidth: "720px",
-                width: "100%",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)",
-                border: "1px solid var(--color-gray-200)"
-              }}>
-                <div style={{
-                  padding: "20px 24px",
-                  borderBottom: "1px solid var(--color-gray-200)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: "#0f172a",
-                  color: "white",
-                  borderRadius: "var(--radius-xl) var(--radius-xl) 0 0"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <Database size={22} color="#38bdf8" />
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700, color: "white" }}>
-                        Supabase PostgreSQL Cloud Database
-                      </h3>
-                      <p style={{ margin: 0, fontSize: "0.75rem", color: "#94a3b8" }}>
-                        Multi-role relational architecture & Row Level Security (RLS)
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowDbModal(false)}
-                    style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
-                  >
-                    <X size={20} />
-                  </button>
-                </div>
 
-                <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "20px" }}>
-                  {/* Status Banner */}
-                  <div style={{
-                    padding: "16px",
-                    borderRadius: "var(--radius-md)",
-                    backgroundColor: isSupabaseConnected ? "#f0fdf4" : "#fef3c7",
-                    border: isSupabaseConnected ? "1px solid #bbf7d0" : "1px solid #fde68a",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center"
-                  }}>
-                    <div>
-                      <span style={{
-                        fontSize: "0.75rem",
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                        color: isSupabaseConnected ? "#166534" : "#92400e"
-                      }}>
-                        {isSupabaseConnected ? "● Live Supabase Connection Active" : "● Supabase Setup Ready (Currently in Persistent Mode)"}
-                      </span>
-                      <p style={{ margin: "4px 0 0", fontSize: "0.85rem", color: isSupabaseConnected ? "#15803d" : "#78350f" }}>
-                        {isSupabaseConnected 
-                          ? "All queries, submissions, grades, and payments are syncing with your live Supabase cloud tables." 
-                          : "Schema and adapter are generated! Add your project keys to .env.local to activate instant cloud sync."}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* 3 Quick Setup Steps */}
-                  <div>
-                    <h4 style={{ margin: "0 0 10px", fontSize: "0.95rem", fontWeight: 700, color: "var(--color-secondary)" }}>
-                      Quick Setup Instructions:
-                    </h4>
-                    <ol style={{ margin: 0, paddingLeft: "20px", fontSize: "0.85rem", color: "var(--color-gray-700)", lineHeight: 1.7 }}>
-                      <li>
-                        Open your <strong>Supabase Dashboard</strong> (or create a free project at <a href="https://supabase.com" target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)", textDecoration: "underline" }}>supabase.com</a>).
-                      </li>
-                      <li>
-                        Go to the <strong>SQL Editor</strong> tab in Supabase, paste the contents of <code>supabase/schema.sql</code>, and click <strong>Run</strong>.
-                      </li>
-                      <li>
-                        Copy your <strong>Project URL</strong> and <strong>Anon Public Key</strong> from <em>Project Settings → API</em> into <code>.env.local</code>.
-                      </li>
-                    </ol>
-                  </div>
-
-                  {/* SQL Schema File Box */}
-                  <div style={{
-                    backgroundColor: "#f8fafc",
-                    border: "1px solid #e2e8f0",
-                    borderRadius: "var(--radius-md)",
-                    padding: "16px"
-                  }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                      <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "#334155" }}>
-                        Schema File: <code>supabase/schema.sql</code> (7 Tables + RLS Policies + Seed Data)
-                      </span>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard?.writeText("-- Run contents from supabase/schema.sql in Supabase SQL editor");
-                          setCopiedSql(true);
-                          setTimeout(() => setCopiedSql(false), 2000);
-                        }}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: "4px",
-                          fontSize: "0.75rem",
-                          padding: "4px 8px",
-                          borderRadius: "4px",
-                          border: "1px solid #cbd5e1",
-                          backgroundColor: "white",
-                          cursor: "pointer"
-                        }}
-                      >
-                        {copiedSql ? <Check size={12} color="#16a34a" /> : <Copy size={12} />}
-                        {copiedSql ? "Copied Path" : "Copy Location"}
-                      </button>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", fontSize: "0.75rem", color: "#475569" }}>
-                      <div>• <strong>admins</strong> (Leadership & Super Admins)</div>
-                      <div>• <strong>teachers</strong> (Educators & Credentials)</div>
-                      <div>• <strong>parents</strong> (Enrolled Families & Contact)</div>
-                      <div>• <strong>students</strong> (Learners, Levels, XP, Badges)</div>
-                      <div>• <strong>classes</strong> (Zoom & Google Meet Schedules)</div>
-                      <div>• <strong>assignments</strong> (Submissions & Grades)</div>
-                      <div style={{ gridColumn: "span 2" }}>• <strong>invoices</strong> (Tuition, Receipts, Online Payments)</div>
-                    </div>
-                  </div>
-
-                  {/* Environment Variables Reference */}
-                  <div style={{
-                    backgroundColor: "#0f172a",
-                    color: "#f8fafc",
-                    padding: "16px",
-                    borderRadius: "var(--radius-md)",
-                    fontFamily: "monospace",
-                    fontSize: "0.8rem"
-                  }}>
-                    <div style={{ color: "#94a3b8", marginBottom: "6px" }}># File: .env.local</div>
-                    <div style={{ color: "#38bdf8" }}>NEXT_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co</div>
-                    <div style={{ color: "#38bdf8" }}>NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here</div>
-                  </div>
-
-                  {/* Close button */}
-                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <button
-                      onClick={() => setShowDbModal(false)}
-                      className="btn btn-primary"
-                      style={{ padding: "8px 24px", fontSize: "0.85rem" }}
-                    >
-                      Done / Close
-                    </button>
-                  </div>
+          {/* VIEW: PARENTS & FAMILIES */}
+          {activeView === "parents" && (
+            <div>
+              <div className={styles.viewHeader}>
+                <div>
+                  <h1 className={styles.viewTitle}>Enrolled Families & Guardians</h1>
+                  <p className={styles.viewSubtitle}>
+                    Diaspora parent accounts, children enrolled, and tuition status.
+                  </p>
                 </div>
               </div>
+
+              {db.parents.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>👨‍👩‍👧‍👦</div>
+                  <h3 className={styles.emptyTitle}>No Families Registered Yet</h3>
+                  <p className={styles.emptyDesc}>
+                    Parents will appear here when they register their children or book free trial lessons.
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.tableContainer}>
+                  <table className={styles.dataTable}>
+                    <thead>
+                      <tr>
+                        <th>Parent / Guardian</th>
+                        <th>Location</th>
+                        <th>Enrolled Children</th>
+                        <th>Billing Status</th>
+                        <th>Direct Contact</th>
+                        <th>Account Created</th>
+                        <th>Tuition Spend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {db.parents.map((p) => {
+                        const children = db.students.filter((s) => p.childrenIds.includes(s.id));
+                        const invoices = db.invoices.filter((inv) => inv.parentId === p.id);
+                        const totalSpend = invoices.reduce((acc, inv) => acc + inv.amountUSD, 0);
+
+                        return (
+                          <tr key={p.id}>
+                            <td>
+                              <strong>{p.name}</strong>
+                              <div style={{ fontSize: "0.75rem", color: "#64748b" }}>Guardian Account</div>
+                            </td>
+                            <td>{p.city}, {p.country}</td>
+                            <td>
+                              {children.length === 0 ? (
+                                <span style={{ fontSize: "0.75rem", color: "#94a3b8" }}>No children registered</span>
+                              ) : (
+                                children.map((c) => (
+                                  <span key={c.id} style={{ display: "inline-block", background: "#f3e8ff", color: "#7e22ce", padding: "2px 8px", borderRadius: "10px", fontSize: "0.75rem", fontWeight: 700, marginRight: "4px" }}>
+                                    {c.name} ({c.enrolledLanguage.split(" ")[0]})
+                                  </span>
+                                ))
+                              )}
+                            </td>
+                            <td>
+                              <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700 }}>
+                                {p.billingStatus}
+                              </span>
+                            </td>
+                            <td>
+                              <div style={{ fontSize: "0.8rem" }}>{p.email}</div>
+                              <div style={{ fontSize: "0.72rem", color: "#64748b" }}>{p.phone}</div>
+                            </td>
+                            <td>{p.accountCreated}</td>
+                            <td>
+                              <strong>${totalSpend}</strong>
+                              <div style={{ fontSize: "0.72rem", color: "#64748b" }}>({invoices.length} invoices)</div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
-          {/* MODAL: ADD STUDENT */}
-          {showAddStudentModal && (
-            <div style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.7)",
-              backdropFilter: "blur(4px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 100,
-              padding: "20px"
-            }}>
-              <div style={{
-                backgroundColor: "white",
-                borderRadius: "var(--radius-xl)",
-                maxWidth: "600px",
-                width: "100%",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)",
-                border: "1px solid var(--color-gray-200)"
-              }}>
-                <div style={{
-                  padding: "18px 24px",
-                  borderBottom: "1px solid var(--color-gray-200)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: "var(--color-secondary)",
-                  color: "white",
-                  borderRadius: "var(--radius-xl) var(--radius-xl) 0 0"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <Plus size={20} color="#e0b034" />
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "white" }}>
-                        Register New Diaspora Learner
-                      </h3>
-                      <p style={{ margin: 0, fontSize: "0.75rem", color: "#94a3b8" }}>
-                        Enroll student and sync directly with Supabase database
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowAddStudentModal(false)}
-                    style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
-                  >
-                    <X size={20} />
-                  </button>
+
+          {/* VIEW: CLASS TIMETABLE */}
+          {activeView === "classes" && (
+            <div>
+              <div className={styles.viewHeader}>
+                <div>
+                  <h1 className={styles.viewTitle}>Live Class Timetable</h1>
+                  <p className={styles.viewSubtitle}>
+                    Master schedule of upcoming Zoom Pro and Google Meet sessions.
+                  </p>
                 </div>
-
-                <form onSubmit={handleCreateStudent} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Learner Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Samuel Adewale"
-                      value={newStudentName}
-                      onChange={(e) => setNewStudentName(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                    />
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Age</label>
-                      <input
-                        type="number"
-                        min={3}
-                        max={18}
-                        value={newStudentAge}
-                        onChange={(e) => setNewStudentAge(Number(e.target.value))}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Heritage Language</label>
-                      <select
-                        value={newStudentLang}
-                        onChange={(e) => setNewStudentLang(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      >
-                        <option value="Yoruba">Yoruba</option>
-                        <option value="Igbo">Igbo</option>
-                        <option value="Hausa">Hausa</option>
-                        <option value="Edo">Edo</option>
-                        <option value="Efik">Efik</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Curriculum Level Track</label>
-                    <select
-                      value={newStudentLevel}
-                      onChange={(e) => setNewStudentLevel(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                    >
-                      <option value="Foundation Track (Ages 5-8)">Foundation Track (Ages 5-8)</option>
-                      <option value="Young Scholars (Ages 9-13)">Young Scholars (Ages 9-13)</option>
-                      <option value="High School & GCSE (Ages 14-18)">High School & GCSE (Ages 14-18)</option>
-                      <option value="Adult Immersion & Conversational">Adult Immersion & Conversational</option>
-                    </select>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Parent / Guardian Name</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Mr. Olumide Adewale"
-                        value={newStudentParentName}
-                        onChange={(e) => setNewStudentParentName(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Parent Email</label>
-                      <input
-                        type="email"
-                        placeholder="guardian@example.com"
-                        value={newStudentParentEmail}
-                        onChange={(e) => setNewStudentParentEmail(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      />
-                    </div>
-                  </div>
-
-                  {db.teachers.length > 0 && (
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Assigned Native Educator</label>
-                      <select
-                        value={newStudentTeacherId}
-                        onChange={(e) => setNewStudentTeacherId(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      >
-                        <option value="">Select an educator...</option>
-                        {db.teachers.map((t) => (
-                          <option key={t.id} value={t.id}>{t.name} ({t.languagesTaught.join(", ")})</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddStudentModal(false)}
-                      style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", background: "white", cursor: "pointer", fontSize: "0.85rem" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn btn-primary"
-                      style={{ padding: "8px 20px", fontSize: "0.85rem" }}
-                    >
-                      Enroll Learner
-                    </button>
-                  </div>
-                </form>
+                <button onClick={() => setShowAddClassModal(true)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>
+                  <Plus size={15} /> Schedule Lesson
+                </button>
               </div>
+
+              {db.classes.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>🗓️</div>
+                  <h3 className={styles.emptyTitle}>No Scheduled Classes in Session</h3>
+                  <p className={styles.emptyDesc}>
+                    Create live interactive Zoom or Google Meet classrooms for faculty and learners.
+                  </p>
+                  <button onClick={() => setShowAddClassModal(true)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`} style={{ margin: "0 auto" }}>
+                    + Schedule New Class
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.tableContainer}>
+                  <table className={styles.dataTable}>
+                    <thead>
+                      <tr>
+                        <th>Lesson Title</th>
+                        <th>Language</th>
+                        <th>Educator</th>
+                        <th>Learner</th>
+                        <th>Schedule</th>
+                        <th>Platform</th>
+                        <th>Meeting Credentials</th>
+                        <th>Admin Supervision</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {db.classes.map((cls) => (
+                        <tr key={cls.id}>
+                          <td>
+                            <strong>{cls.title}</strong>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                              {cls.topics?.slice(0, 2).join(", ")}
+                            </div>
+                          </td>
+                          <td>
+                            <span style={{ background: "#fef3c7", color: "#92400e", padding: "2px 6px", borderRadius: "4px", fontSize: "0.75rem", fontWeight: 700 }}>
+                              {cls.language}
+                            </span>
+                          </td>
+                          <td><strong>{cls.teacherName}</strong></td>
+                          <td>{cls.studentName}</td>
+                          <td>
+                            <strong>{cls.date}</strong>
+                            <div style={{ fontSize: "0.75rem", color: "#64748b" }}>{cls.time}</div>
+                          </td>
+                          <td>
+                            <span style={{
+                              background: cls.platform === "zoom" ? "#e0f2fe" : "#dcfce7",
+                              color: cls.platform === "zoom" ? "#0369a1" : "#166534",
+                              padding: "3px 8px",
+                              borderRadius: "10px",
+                              fontSize: "0.75rem",
+                              fontWeight: 700
+                            }}>
+                              {cls.platform === "zoom" ? "Zoom Pro" : "Google Meet"}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontSize: "0.75rem" }}>ID: {cls.meetingId}</div>
+                            <div style={{ fontSize: "0.72rem", color: "#64748b" }}>Passcode: {cls.meetingPasscode}</div>
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => openMeetingLauncher(cls)}
+                              className="btn btn-primary"
+                              style={{ fontSize: "0.75rem", padding: "6px 12px", display: "inline-flex", alignItems: "center", gap: "4px" }}
+                            >
+                              <Video size={12} /> Launch
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           )}
 
-          {/* MODAL: ONBOARD TEACHER */}
-          {showAddTeacherModal && (
-            <div style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.7)",
-              backdropFilter: "blur(4px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 100,
-              padding: "20px"
-            }}>
-              <div style={{
-                backgroundColor: "white",
-                borderRadius: "var(--radius-xl)",
-                maxWidth: "560px",
-                width: "100%",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)",
-                border: "1px solid var(--color-gray-200)"
-              }}>
-                <div style={{
-                  padding: "18px 24px",
-                  borderBottom: "1px solid var(--color-gray-200)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: "var(--color-secondary)",
-                  color: "white",
-                  borderRadius: "var(--radius-xl) var(--radius-xl) 0 0"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <Plus size={20} color="#86efac" />
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "white" }}>
-                        Onboard Certified Native Educator
-                      </h3>
-                      <p style={{ margin: 0, fontSize: "0.75rem", color: "#94a3b8" }}>
-                        Accredit teacher profile and assign diaspora students
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowAddTeacherModal(false)}
-                    style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
-                  >
-                    <X size={20} />
-                  </button>
+          {/* VIEW: ASSIGNMENTS AUDIT */}
+          {activeView === "assignments" && (
+            <div>
+              <div className={styles.viewHeader}>
+                <div>
+                  <h1 className={styles.viewTitle}>Assignments & Grading Audit</h1>
+                  <p className={styles.viewSubtitle}>
+                    Inspect homework submissions, audio clips, and educator feedback remarks.
+                  </p>
                 </div>
-
-                <form onSubmit={handleCreateTeacher} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Educator Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Mrs. Folashade Adeyemi"
-                      value={newTeacherName}
-                      onChange={(e) => setNewTeacherName(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                    />
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Professional Email *</label>
-                      <input
-                        type="email"
-                        required
-                        placeholder="teacher@naijalang.com"
-                        value={newTeacherEmail}
-                        onChange={(e) => setNewTeacherEmail(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>WhatsApp / Direct Phone</label>
-                      <input
-                        type="text"
-                        value={newTeacherPhone}
-                        onChange={(e) => setNewTeacherPhone(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Primary Heritage Language</label>
-                    <select
-                      value={newTeacherLang}
-                      onChange={(e) => setNewTeacherLang(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                    >
-                      <option value="Yoruba">Yoruba</option>
-                      <option value="Igbo">Igbo</option>
-                      <option value="Hausa">Hausa</option>
-                      <option value="Edo">Edo</option>
-                      <option value="Efik">Efik</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Pedagogical Accreditation & Qualifications</label>
-                    <textarea
-                      rows={3}
-                      placeholder="e.g. B.Ed Yoruba Linguistics (University of Ibadan) • 10+ Years Diaspora Online Instruction"
-                      value={newTeacherBio}
-                      onChange={(e) => setNewTeacherBio(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.85rem" }}
-                    />
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddTeacherModal(false)}
-                      style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", background: "white", cursor: "pointer", fontSize: "0.85rem" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn btn-primary"
-                      style={{ padding: "8px 20px", fontSize: "0.85rem" }}
-                    >
-                      Onboard Faculty
-                    </button>
-                  </div>
-                </form>
               </div>
-            </div>
-          )}
 
-          {/* MODAL: SCHEDULE CLASS */}
-          {showAddClassModal && (
-            <div style={{
-              position: "fixed",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0, 0, 0, 0.7)",
-              backdropFilter: "blur(4px)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              zIndex: 100,
-              padding: "20px"
-            }}>
-              <div style={{
-                backgroundColor: "white",
-                borderRadius: "var(--radius-xl)",
-                maxWidth: "580px",
-                width: "100%",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.4)",
-                border: "1px solid var(--color-gray-200)"
-              }}>
-                <div style={{
-                  padding: "18px 24px",
-                  borderBottom: "1px solid var(--color-gray-200)",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  backgroundColor: "var(--color-secondary)",
-                  color: "white",
-                  borderRadius: "var(--radius-xl) var(--radius-xl) 0 0"
-                }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <Video size={20} color="#38bdf8" />
-                    <div>
-                      <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "white" }}>
-                        Schedule Live Heritage Lesson
-                      </h3>
-                      <p style={{ margin: 0, fontSize: "0.75rem", color: "#94a3b8" }}>
-                        Configure live classroom and credentials for teacher & student
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setShowAddClassModal(false)}
-                    style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer", padding: "4px" }}
-                  >
-                    <X size={20} />
-                  </button>
+              {db.assignments.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>📝</div>
+                  <h3 className={styles.emptyTitle}>No Homework or Tasks Registered</h3>
+                  <p className={styles.emptyDesc}>
+                    When teachers assign tasks and learners submit recordings or worksheets, they will appear here.
+                  </p>
                 </div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                  {db.assignments.map((asg) => {
+                    const student = db.students.find((s) => s.id === asg.studentId);
+                    const teacher = db.teachers.find((t) => t.id === asg.teacherId);
 
-                <form onSubmit={handleCreateClass} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
-                  <div>
-                    <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Session Title *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. Master Yoruba Tones & Everyday Greetings"
-                      value={newClassTitle}
-                      onChange={(e) => setNewClassTitle(e.target.value)}
-                      style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                    />
-                  </div>
+                    return (
+                      <div key={asg.id} style={{ background: "white", padding: "20px", borderRadius: "14px", border: "1px solid #e2e8f0" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "8px", flexWrap: "wrap", gap: "8px" }}>
+                          <div>
+                            <span style={{ fontSize: "0.72rem", textTransform: "uppercase", fontWeight: 700, color: "#16a34a" }}>
+                              {asg.subject} • Learner: {student?.name || "Student"} • Graded By: {teacher?.name || "Faculty"}
+                            </span>
+                            <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "#0f172a", margin: "4px 0" }}>
+                              {asg.title}
+                            </h3>
+                            <span style={{ fontSize: "0.75rem", color: "#64748b" }}>
+                              Due / Submitted: {asg.dueDate}
+                            </span>
+                          </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Language Course</label>
-                      <select
-                        value={newClassLang}
-                        onChange={(e) => setNewClassLang(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      >
-                        <option value="Yoruba">Yoruba</option>
-                        <option value="Igbo">Igbo</option>
-                        <option value="Hausa">Hausa</option>
-                        <option value="Edo">Edo</option>
-                        <option value="Efik">Efik</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Video Platform</label>
-                      <select
-                        value={newClassPlatform}
-                        onChange={(e) => setNewClassPlatform(e.target.value as "google-meet" | "zoom")}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      >
-                        <option value="google-meet">Google Meet</option>
-                        <option value="zoom">Zoom Pro</option>
-                      </select>
-                    </div>
-                  </div>
+                          <div>
+                            {asg.status === "graded" && asg.grade ? (
+                              <span style={{ background: "#dcfce7", color: "#166534", padding: "4px 12px", borderRadius: "12px", fontSize: "0.85rem", fontWeight: 800 }}>
+                                Score: {asg.grade.score}/100 ({asg.grade.letter})
+                              </span>
+                            ) : asg.status === "submitted" ? (
+                              <span style={{ background: "#fef3c7", color: "#92400e", padding: "4px 12px", borderRadius: "12px", fontSize: "0.8rem", fontWeight: 700 }}>
+                                Awaiting Teacher Review
+                              </span>
+                            ) : (
+                              <span style={{ background: "#f1f5f9", color: "#475569", padding: "4px 12px", borderRadius: "12px", fontSize: "0.8rem" }}>
+                                In Progress
+                              </span>
+                            )}
+                          </div>
+                        </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Select Educator</label>
-                      <select
-                        value={newClassTeacherId}
-                        onChange={(e) => setNewClassTeacherId(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      >
-                        {db.teachers.length === 0 ? (
-                          <option value="">No educators onboarded yet</option>
-                        ) : (
-                          db.teachers.map((t) => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
-                          ))
+                        <p style={{ fontSize: "0.85rem", color: "#334155", margin: "0 0 12px" }}>
+                          {asg.instructions}
+                        </p>
+
+                        {asg.studentSubmission && (
+                          <div style={{ background: "#f8fafc", padding: "12px", borderRadius: "8px", border: "1px solid #e2e8f0", marginBottom: "12px" }}>
+                            <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "#64748b", textTransform: "uppercase", marginBottom: "4px" }}>
+                              Submission ({asg.studentSubmission.submittedAt}):
+                            </div>
+                            <p style={{ margin: "0 0 6px", fontSize: "0.85rem", color: "#1e293b" }}>
+                              "{asg.studentSubmission.textResponse}"
+                            </p>
+                            <div style={{ display: "flex", gap: "8px" }}>
+                              {asg.studentSubmission.fileName && (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "white", padding: "2px 8px", borderRadius: "8px", border: "1px solid #cbd5e1", fontSize: "0.72rem" }}>
+                                  <FileText size={11} color="#15803d" /> {asg.studentSubmission.fileName}
+                                </span>
+                              )}
+                              {asg.studentSubmission.hasAudioRecording && (
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", background: "#fef3c7", padding: "2px 8px", borderRadius: "8px", border: "1px solid #fde68a", fontSize: "0.72rem", color: "#92400e" }}>
+                                  <Mic size={11} /> Audio Recording ({asg.studentSubmission.audioDuration})
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         )}
-                      </select>
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Select Learner</label>
-                      <select
-                        value={newClassStudentId}
-                        onChange={(e) => setNewClassStudentId(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      >
-                        {db.students.length === 0 ? (
-                          <option value="">No students registered yet</option>
-                        ) : (
-                          db.students.map((s) => (
-                            <option key={s.id} value={s.id}>{s.name} ({s.enrolledLanguage.split(" ")[0]})</option>
-                          ))
+
+                        {asg.status === "graded" && asg.grade && (
+                          <div style={{ background: "#f0fdf4", padding: "12px", borderRadius: "8px", border: "1px solid #bbf7d0", fontSize: "0.85rem" }}>
+                            <strong style={{ color: "#166534" }}>Teacher Feedback:</strong>
+                            <p style={{ margin: "2px 0 6px", fontStyle: "italic", color: "#166534" }}>
+                              "{asg.grade.feedback}"
+                            </p>
+                          </div>
                         )}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Date</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Tomorrow, or Oct 5"
-                        value={newClassDate}
-                        onChange={(e) => setNewClassDate(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Time (WAT)</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 4:00 PM WAT"
-                        value={newClassTime}
-                        onChange={(e) => setNewClassTime(e.target.value)}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", fontSize: "0.9rem" }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddClassModal(false)}
-                      style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--color-gray-300)", background: "white", cursor: "pointer", fontSize: "0.85rem" }}
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="btn btn-primary"
-                      style={{ padding: "8px 20px", fontSize: "0.85rem" }}
-                    >
-                      Schedule Class
-                    </button>
-                  </div>
-                </form>
-              </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
+
+          {/* VIEW: TUITION & FINANCIAL LEDGER */}
+          {activeView === "invoices" && (
+            <div>
+              <div className={styles.viewHeader}>
+                <div>
+                  <h1 className={styles.viewTitle}>Financial Ledger & Tuition Audit</h1>
+                  <p className={styles.viewSubtitle}>
+                    Audited transaction history for course subscriptions and online card/transfer payments.
+                  </p>
+                </div>
+              </div>
+
+              {db.invoices.length === 0 ? (
+                <div className={styles.emptyCard}>
+                  <div className={styles.emptyIcon}>💳</div>
+                  <h3 className={styles.emptyTitle}>No Financial Transactions Yet</h3>
+                  <p className={styles.emptyDesc}>
+                    Online payments processed through Stripe, Paystack, or Wire transfer will be logged here.
+                  </p>
+                </div>
+              ) : (
+                <div className={styles.tableContainer}>
+                  <table className={styles.dataTable}>
+                    <thead>
+                      <tr>
+                        <th>Invoice #</th>
+                        <th>Date</th>
+                        <th>Paying Parent</th>
+                        <th>Enrolled Learner</th>
+                        <th>Description</th>
+                        <th>Amount (USD)</th>
+                        <th>Amount (NGN)</th>
+                        <th>Payment Method</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {db.invoices.map((inv) => {
+                        const parent = db.parents.find((p) => p.id === inv.parentId);
+                        const student = db.students.find((s) => s.id === inv.studentId);
+
+                        return (
+                          <tr key={inv.id}>
+                            <td><strong>{inv.invoiceNumber}</strong></td>
+                            <td>{inv.date}</td>
+                            <td>{parent?.name || "Guardian"}</td>
+                            <td>{student?.name || "Student"}</td>
+                            <td style={{ maxWidth: "220px", fontSize: "0.8rem" }}>{inv.description}</td>
+                            <td><strong>${inv.amountUSD}</strong></td>
+                            <td>₦{inv.amountNGN.toLocaleString()}</td>
+                            <td>
+                              <span style={{ fontSize: "0.75rem", background: "#f1f5f9", padding: "2px 6px", borderRadius: "4px" }}>
+                                {inv.method}
+                              </span>
+                            </td>
+                            <td>
+                              <span style={{ background: "#dcfce7", color: "#166534", padding: "3px 10px", borderRadius: "12px", fontSize: "0.75rem", fontWeight: 700 }}>
+                                {inv.status}
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
+
+      {/* 4. MODALS */}
+
+      {/* MODAL: ADD STUDENT */}
+      {showAddStudentModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: "20px" }}>
+          <div style={{ background: "white", borderRadius: "16px", maxWidth: "580px", width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", color: "white", borderRadius: "16px 16px 0 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Plus size={20} color="#e0b034" />
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Register New Diaspora Learner</h3>
+              </div>
+              <button onClick={() => setShowAddStudentModal(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleCreateStudent} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Learner Full Name *</label>
+                <input type="text" required placeholder="e.g. Samuel Adewale" value={newStudentName} onChange={(e) => setNewStudentName(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Age</label>
+                  <input type="number" min={3} max={18} value={newStudentAge} onChange={(e) => setNewStudentAge(Number(e.target.value))} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Heritage Language</label>
+                  <select value={newStudentLang} onChange={(e) => setNewStudentLang(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                    <option value="Yoruba">Yoruba</option>
+                    <option value="Igbo">Igbo</option>
+                    <option value="Hausa">Hausa</option>
+                    <option value="Edo">Edo</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Curriculum Level Track</label>
+                <select value={newStudentLevel} onChange={(e) => setNewStudentLevel(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                  <option value="Foundation Track (Ages 5-8)">Foundation Track (Ages 5-8)</option>
+                  <option value="Young Scholars (Ages 9-13)">Young Scholars (Ages 9-13)</option>
+                  <option value="High School & GCSE (Ages 14-18)">High School & GCSE (Ages 14-18)</option>
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Parent / Guardian Name</label>
+                  <input type="text" placeholder="e.g. Olumide Adewale" value={newStudentParentName} onChange={(e) => setNewStudentParentName(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Parent Email</label>
+                  <input type="email" placeholder="parent@example.com" value={newStudentParentEmail} onChange={(e) => setNewStudentParentEmail(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                </div>
+              </div>
+
+              {db.teachers.length > 0 && (
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Assign Native Educator</label>
+                  <select value={newStudentTeacherId} onChange={(e) => setNewStudentTeacherId(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                    <option value="">Select an educator...</option>
+                    {db.teachers.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name} ({t.languagesTaught.join(", ")})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
+                <button type="button" onClick={() => setShowAddStudentModal(false)} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "white", cursor: "pointer" }}>Cancel</button>
+                <button type="submit" className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>Enroll Learner</button>
+              </div>
+            </form>
+          </div>
         </div>
-      </main>
-    </div>
+      )}
+
+      {/* MODAL: ONBOARD TEACHER */}
+      {showAddTeacherModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: "20px" }}>
+          <div style={{ background: "white", borderRadius: "16px", maxWidth: "540px", width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", color: "white", borderRadius: "16px 16px 0 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Plus size={20} color="#86efac" />
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Onboard Certified Native Educator</h3>
+              </div>
+              <button onClick={() => setShowAddTeacherModal(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleCreateTeacher} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Educator Full Name *</label>
+                <input type="text" required placeholder="e.g. Mrs. Folashade Adeyemi" value={newTeacherName} onChange={(e) => setNewTeacherName(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Professional Email *</label>
+                  <input type="email" required placeholder="teacher@naijalang.com" value={newTeacherEmail} onChange={(e) => setNewTeacherEmail(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>WhatsApp / Direct Phone</label>
+                  <input type="text" value={newTeacherPhone} onChange={(e) => setNewTeacherPhone(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Primary Heritage Language</label>
+                <select value={newTeacherLang} onChange={(e) => setNewTeacherLang(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                  <option value="Yoruba">Yoruba</option>
+                  <option value="Igbo">Igbo</option>
+                  <option value="Hausa">Hausa</option>
+                  <option value="Edo">Edo</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Pedagogical Accreditation & Qualifications</label>
+                <textarea rows={3} placeholder="e.g. B.Ed Yoruba Linguistics • 10+ Years Online Diaspora Pedagogy" value={newTeacherBio} onChange={(e) => setNewTeacherBio(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1", fontSize: "0.85rem" }} />
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
+                <button type="button" onClick={() => setShowAddTeacherModal(false)} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "white", cursor: "pointer" }}>Cancel</button>
+                <button type="submit" className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>Onboard Faculty</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SCHEDULE CLASS */}
+      {showAddClassModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: "20px" }}>
+          <div style={{ background: "white", borderRadius: "16px", maxWidth: "560px", width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", color: "white", borderRadius: "16px 16px 0 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Video size={20} color="#38bdf8" />
+                <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700 }}>Schedule Live Heritage Lesson</h3>
+              </div>
+              <button onClick={() => setShowAddClassModal(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}><X size={20} /></button>
+            </div>
+
+            <form onSubmit={handleCreateClass} style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "16px" }}>
+              <div>
+                <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Session Title *</label>
+                <input type="text" required placeholder="e.g. Master Yoruba Tones & Greetings" value={newClassTitle} onChange={(e) => setNewClassTitle(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Language Course</label>
+                  <select value={newClassLang} onChange={(e) => setNewClassLang(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                    <option value="Yoruba">Yoruba</option>
+                    <option value="Igbo">Igbo</option>
+                    <option value="Hausa">Hausa</option>
+                    <option value="Edo">Edo</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Platform</label>
+                  <select value={newClassPlatform} onChange={(e) => setNewClassPlatform(e.target.value as "google-meet" | "zoom")} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                    <option value="google-meet">Google Meet</option>
+                    <option value="zoom">Zoom Pro</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Select Educator</label>
+                  <select value={newClassTeacherId} onChange={(e) => setNewClassTeacherId(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                    {db.teachers.length === 0 ? <option value="">No educators available</option> : db.teachers.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Select Learner</label>
+                  <select value={newClassStudentId} onChange={(e) => setNewClassStudentId(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }}>
+                    {db.students.length === 0 ? <option value="">No students available</option> : db.students.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Date</label>
+                  <input type="text" placeholder="Tomorrow" value={newClassDate} onChange={(e) => setNewClassDate(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: "0.8rem", fontWeight: 700, marginBottom: "6px" }}>Time (WAT)</label>
+                  <input type="text" placeholder="4:00 PM WAT" value={newClassTime} onChange={(e) => setNewClassTime(e.target.value)} style={{ width: "100%", padding: "10px 12px", borderRadius: "6px", border: "1px solid #cbd5e1" }} />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "12px" }}>
+                <button type="button" onClick={() => setShowAddClassModal(false)} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid #cbd5e1", background: "white", cursor: "pointer" }}>Cancel</button>
+                <button type="submit" className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>Schedule Class</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: SUPABASE CONFIG */}
+      {showDbModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 100, padding: "20px" }}>
+          <div style={{ background: "white", borderRadius: "16px", maxWidth: "680px", width: "100%", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.4)" }}>
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0f172a", color: "white", borderRadius: "16px 16px 0 0" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                <Database size={22} color="#38bdf8" />
+                <h3 style={{ margin: 0, fontSize: "1.15rem", fontWeight: 700 }}>Supabase PostgreSQL Cloud Database</h3>
+              </div>
+              <button onClick={() => setShowDbModal(false)} style={{ background: "none", border: "none", color: "#94a3b8", cursor: "pointer" }}><X size={20} /></button>
+            </div>
+
+            <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: "18px" }}>
+              <div style={{ padding: "14px", borderRadius: "8px", background: isSupabaseConnected ? "#f0fdf4" : "#fef3c7", border: isSupabaseConnected ? "1px solid #bbf7d0" : "1px solid #fde68a" }}>
+                <strong style={{ color: isSupabaseConnected ? "#166534" : "#92400e", fontSize: "0.85rem" }}>
+                  {isSupabaseConnected ? "● Live Supabase Connection Active" : "● Supabase Setup Ready"}
+                </strong>
+                <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: isSupabaseConnected ? "#15803d" : "#78350f" }}>
+                  All queries, newly registered students, faculty profiles, and invoices are synced with your live Supabase cloud tables.
+                </p>
+              </div>
+
+              <div style={{ background: "#0f172a", color: "#f8fafc", padding: "14px", borderRadius: "8px", fontFamily: "monospace", fontSize: "0.78rem" }}>
+                <div style={{ color: "#94a3b8", marginBottom: "4px" }}># Live Project URL</div>
+                <div style={{ color: "#38bdf8" }}>https://qhwawpgpuvpkltgroktc.supabase.co</div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <button onClick={() => setShowDbModal(false)} className={`${styles.actionBtn} ${styles.actionBtnPrimary}`}>
+                  Done / Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </AuthGuard>
   );
 }
