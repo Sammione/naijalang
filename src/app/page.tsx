@@ -29,7 +29,7 @@ export default function Home() {
                 <div className={styles.glassAvatar}></div>
                 <div className={styles.glassTextGroup}>
                   <div className={styles.glassTitle}>Yoruba - Level 1</div>
-                  <div className={styles.glassSubtitle}>with Mrs. Ojo</div>
+                  <div className={styles.glassSubtitle}>Live Human Mentorship</div>
                 </div>
               </div>
             </div>

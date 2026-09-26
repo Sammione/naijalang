@@ -1,0 +1,228 @@
+.container {
+  min-height: 100vh;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  display: flex;
+  flex-direction: column;
+}
+
+.topNav {
+  background-color: #0f172a;
+  border-bottom: 1px solid #1e293b;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.navInner {
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  height: 70px;
+}
+
+.logo {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #f8fafc;
+  letter-spacing: -0.02em;
+}
+
+.badgeRole {
+  background: linear-gradient(135deg, #e11d48, #9333ea);
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 20px;
+  box-shadow: 0 2px 8px rgba(225, 29, 72, 0.4);
+}
+
+.heroProfile {
+  background: linear-gradient(135deg, #090d16 0%, #1e1b4b 60%, #311042 100%);
+  border-radius: var(--radius-xl);
+  padding: 32px 36px;
+  margin-top: 28px;
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.profileInfo {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #f43f5e, #8b5cf6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(244, 63, 94, 0.4);
+}
+
+.greetingTitle {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin: 4px 0 2px;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.statsBar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(12px);
+  padding: 14px 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-wrap: wrap;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statVal {
+  font-size: 1.35rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #f8fafc;
+}
+
+.statLabel {
+  font-size: 0.72rem;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.mainContent {
+  padding: 24px 0 60px;
+}
+
+.tabList {
+  display: flex;
+  gap: 8px;
+  margin: 28px 0 20px;
+  border-bottom: 2px solid var(--color-gray-200);
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.tabBtn {
+  background: none;
+  border: none;
+  padding: 10px 18px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-gray-600);
+  cursor: pointer;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.tabBtn:hover {
+  color: var(--color-primary);
+  background-color: var(--color-gray-100);
+}
+
+.activeTabBtn {
+  color: #9333ea !important;
+  background-color: #faf5ff;
+  border-bottom: 3px solid #9333ea;
+  font-weight: 700;
+}
+
+.cardFloating {
+  background: var(--color-surface);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cardFloating:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.tableWrapper {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-gray-200);
+  background: white;
+}
+
+.dataTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  text-align: left;
+}
+
+.dataTable th {
+  background-color: #f8fafc;
+  padding: 14px 18px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+.dataTable td {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--color-gray-100);
+  color: #1e293b;
+  vertical-align: middle;
+}
+
+.dataTable tr:hover td {
+  background-color: #f8fafc;
+}
+
+.rolePill {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+@media (max-width: 900px) {
+  .heroProfile {
+    padding: 24px 20px;
+  }
+  .statsBar {
+    width: 100%;
+    justifyContent: space-around;
+  }
+}

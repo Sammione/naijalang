@@ -1,293 +1,366 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { 
+  UserRole, 
+  AdminUser, 
+  TeacherUser, 
+  ParentUser, 
+  StudentUser, 
+  ScheduledClass, 
+  Assignment, 
+  Invoice, 
+  HubDatabase 
+} from "@/types/database";
+import { initialDatabase } from "@/db/initialData";
+import { 
+  fetchSupabaseDatabase, 
+  syncAssignmentSubmissionToSupabase, 
+  syncAssignmentGradingToSupabase, 
+  syncPaymentToSupabase, 
+  syncTeacherReassignmentToSupabase,
+  syncStudentToSupabase,
+  syncTeacherToSupabase,
+  syncParentToSupabase,
+  syncClassToSupabase
+} from "@/lib/supabaseService";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
-export interface ScheduledClass {
-  id: string;
-  title: string;
-  language: string;
-  studentName: string;
-  teacherName: string;
-  date: string;
-  time: string;
-  status: "upcoming" | "live" | "completed";
-  platform: "google-meet" | "zoom";
-  meetingUrl: string;
-  meetingId: string;
-  meetingPasscode: string;
-  topics: string[];
-}
-
-export interface Assignment {
-  id: string;
-  title: string;
-  subject: string;
-  dueDate: string;
-  description: string;
-  instructions: string;
-  status: "pending" | "submitted" | "graded";
-  studentSubmission?: {
-    submittedAt: string;
-    textResponse: string;
-    fileName?: string;
-    hasAudioRecording?: boolean;
-    audioDuration?: string;
-  };
-  grade?: {
-    score: number;
-    letter: string;
-    gradedAt: string;
-    gradedBy: string;
-    feedback: string;
-    badges: string[];
-  };
-}
-
-export interface StudentProfileData {
-  id: string;
-  name: string;
-  age: number;
-  enrolledLanguage: string;
-  level: string;
-  streakDays: number;
-  xpPoints: number;
-  assignedTeacher: string;
-  avatarLetter: string;
-  attendanceRate: number;
-  bio: string;
-  badges: Array<{ id: string; name: string; icon: string; dateEarned: string }>;
-}
-
-export interface StaffProfileData {
-  id: string;
-  name: string;
-  title: string;
-  email: string;
-  phone: string;
-  avatarLetters: string;
-  languagesTaught: string[];
-  rating: number;
-  totalStudents: number;
-  classesCompleted: number;
-  bio: string;
-  qualifications: string[];
-}
-
-export interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  date: string;
-  description: string;
-  amountUSD: number;
-  amountNGN: number;
-  status: "Paid" | "Pending" | "Upcoming";
-  method: string;
-  receiptUrl?: string;
-}
+export type { 
+  UserRole, 
+  AdminUser, 
+  TeacherUser, 
+  ParentUser, 
+  StudentUser, 
+  ScheduledClass, 
+  Assignment, 
+  Invoice, 
+  HubDatabase 
+};
 
 interface AppContextType {
+  // Database instance
+  db: HubDatabase;
+  isSupabaseConnected: boolean;
+
+  // Active Session & Role
+  currentRole: UserRole;
+  currentUser: AdminUser | TeacherUser | ParentUser | StudentUser;
+  switchUser: (role: UserRole, id?: string) => void;
+  logout: () => void;
+
+  // Role-Isolated Queries
+  roleClasses: ScheduledClass[];
+  roleAssignments: Assignment[];
+  roleStudents: StudentUser[];
+  roleTeachers: TeacherUser[];
+  roleParents: ParentUser[];
+  roleInvoices: Invoice[];
+
+  // Legacy convenience properties (role-aware)
   classes: ScheduledClass[];
   assignments: Assignment[];
-  student: StudentProfileData;
-  staff: StaffProfileData;
+  student: StudentUser;
+  staff: TeacherUser;
   invoices: Invoice[];
+
+  // Interactive Live Meetings
   activeMeeting: ScheduledClass | null;
   openMeetingLauncher: (cls: ScheduledClass) => void;
   closeMeetingLauncher: () => void;
+
+  // Operations
   submitAssignment: (assignmentId: string, responseText: string, fileName?: string, hasAudio?: boolean) => void;
   gradeAssignment: (assignmentId: string, score: number, feedback: string, badges: string[]) => void;
-  processPayment: (amountUSD: number, amountNGN: number, method: string, planName: string) => Promise<boolean>;
+  processPayment: (amountUSD: number, amountNGN: number, method: string, planName: string, studentId?: string) => Promise<boolean>;
+  
+  // Admin Operations
+  adminAssignTeacher: (studentId: string, teacherId: string) => void;
+  adminCreateClass: (newClass: Omit<ScheduledClass, "id">) => void;
+  adminCreateStudent: (newStudent: Omit<StudentUser, "id">) => void;
+  adminCreateTeacher: (newTeacher: Omit<TeacherUser, "id">) => void;
+  adminCreateParent: (newParent: Omit<ParentUser, "id">) => void;
+  adminUpdateStudentStatus: (studentId: string, updates: Partial<StudentUser>) => void;
+
+  // Reset database
   resetToDefaultData: () => void;
 }
-
-const defaultClasses: ScheduledClass[] = [
-  {
-    id: "cls-1",
-    title: "Yoruba Tone Pairs & Conversational Greetings",
-    language: "Yoruba (Foundation)",
-    studentName: "Samuel Adewale",
-    teacherName: "Mrs. Folashade Ojo",
-    date: "Today",
-    time: "16:00 - 16:50 WAT",
-    status: "live",
-    platform: "google-meet",
-    meetingUrl: "https://meet.google.com/nai-yru-hub",
-    meetingId: "nai-yru-hub",
-    meetingPasscode: "YORUBA2026",
-    topics: ["High, Mid, Low tone marks (Á, A, À)", "Polite morning & evening salutations", "Family member titles"]
-  },
-  {
-    id: "cls-2",
-    title: "Market Simulation & Polite Bargaining Phrases",
-    language: "Yoruba (Foundation)",
-    studentName: "Samuel Adewale",
-    teacherName: "Mrs. Folashade Ojo",
-    date: "Saturday, Sep 27",
-    time: "10:00 - 10:50 WAT",
-    status: "upcoming",
-    platform: "zoom",
-    meetingUrl: "https://zoom.us/j/84920193819",
-    meetingId: "849 2019 3819",
-    meetingPasscode: "593812",
-    topics: ["Counting naira & kobo in Yoruba", "Asking 'Eelo ni?' (How much?)", "Complimenting goods"]
-  },
-  {
-    id: "cls-3",
-    title: "Folktale Hour: Ijapa the Tortoise & The Magic Drum",
-    language: "Yoruba (Cultural Enrichment)",
-    studentName: "Samuel Adewale",
-    teacherName: "Mrs. Folashade Ojo",
-    date: "Wednesday, Oct 1",
-    time: "17:00 - 17:45 WAT",
-    status: "upcoming",
-    platform: "google-meet",
-    meetingUrl: "https://meet.google.com/hub-tor-drum",
-    meetingId: "hub-tor-drum",
-    meetingPasscode: "FOLKTALE",
-    topics: ["Listening comprehension", "Moral of the story discussion", "Animal vocabulary"]
-  }
-];
-
-const defaultAssignments: Assignment[] = [
-  {
-    id: "asg-1",
-    title: "Audio Practice: Yoruba Greetings for Elders vs Peers",
-    subject: "Yoruba Foundation",
-    dueDate: "Due Tomorrow, 18:00 WAT",
-    description: "Record yourself pronouncing 3 polite greetings with correct tone marks.",
-    instructions: "Please pronounce: 1. 'Ẹ káàrọ̀ mà' (Good morning ma) 2. 'Ẹ kú ìrọ̀lẹ́' (Good evening) 3. 'Báwo ni ọ̀rẹ́ mi' (How are you my friend). Pay close attention to the high tone on 'káà' and low tone on 'rọ̀'.",
-    status: "submitted",
-    studentSubmission: {
-      submittedAt: "Today at 14:15 WAT",
-      textResponse: "I practiced with mommy 3 times before recording! Hope my tone marks are clear on Ẹ káàrọ̀.",
-      fileName: "samuel_greetings_yoruba.mp3",
-      hasAudioRecording: true,
-      audioDuration: "0:42"
-    }
-  },
-  {
-    id: "asg-2",
-    title: "Worksheet: Numbers 1 to 20 & Market Fruits",
-    subject: "Yoruba Foundation",
-    dueDate: "Due Sep 29, 2026",
-    description: "Match the Yoruba numbers (Ọ̀kan, Èjì, Ẹ̀ta...) to fruit quantities from the market scene.",
-    instructions: "Write out the numbers 1 through 10 in Yoruba and translate 5 common fruits (Ọ̀sàn, Ọ̀gẹ̀dẹ̀, Ànàmọ́, etc.).",
-    status: "pending"
-  },
-  {
-    id: "asg-3",
-    title: "Cultural Project: My Family Tree (Àwọn Ẹbí Mi)",
-    subject: "Yoruba Culture & Heritage",
-    dueDate: "Graded on Sep 22, 2026",
-    description: "Draw your family tree and label your parents, siblings, and grandparents in Yoruba.",
-    instructions: "Include Bàbá, Ìyá, Àbúrò, Ẹ̀gbọ́n, Bàbá Àgbà, and Ìyá Àgbà.",
-    status: "graded",
-    studentSubmission: {
-      submittedAt: "Sep 21, 2026 at 16:30 WAT",
-      textResponse: "Here is my completed family tree chart with photos of Grandma in Lagos!",
-      fileName: "samuel_family_tree_project.pdf"
-    },
-    grade: {
-      score: 98,
-      letter: "A+",
-      gradedAt: "Sep 22, 2026",
-      gradedBy: "Mrs. Folashade Ojo",
-      feedback: "Ọ kare pupo (Bravo, Samuel)! Your spelling of Bàbá Àgbà and Ìyá Àgbà was completely accurate with tone marks. Your parents must be very proud!",
-      badges: ["Tone Master", "Heritage Hero", "Grammar Star"]
-    }
-  }
-];
-
-const defaultStudent: StudentProfileData = {
-  id: "samuel-adewale",
-  name: "Samuel Adewale",
-  age: 8,
-  enrolledLanguage: "Yoruba (Heritage Foundation)",
-  level: "Level 2 — Intermediate Heritage",
-  streakDays: 14,
-  xpPoints: 1850,
-  assignedTeacher: "Mrs. Folashade Ojo",
-  avatarLetter: "S",
-  attendanceRate: 98,
-  bio: "Curious 8-year-old learning his ancestral Yoruba language so he can converse with grandparents in Ibadan and Lagos.",
-  badges: [
-    { id: "b1", name: "Greeting Virtuoso", icon: "award", dateEarned: "Sep 15, 2026" },
-    { id: "b2", name: "Tone Master", icon: "music", dateEarned: "Sep 22, 2026" },
-    { id: "b3", name: "14-Day Streak", icon: "streak", dateEarned: "Today" },
-    { id: "b4", name: "Folktale Listener", icon: "book", dateEarned: "Sep 10, 2026" }
-  ]
-};
-
-const defaultStaff: StaffProfileData = {
-  id: "teacher-ojo",
-  name: "Mrs. Folashade Ojo",
-  title: "Senior Yoruba Linguist & Heritage Lead",
-  email: "folashade.ojo@naijalang.com",
-  phone: "+234 803 249 8172",
-  avatarLetters: "FO",
-  languagesTaught: ["Yoruba (Native/Expert)", "Igbo (Conversational)", "English"],
-  rating: 4.96,
-  totalStudents: 28,
-  classesCompleted: 342,
-  bio: "12+ years specializing in diasporic child immersion, tonal pedagogy, and interactive Nigerian cultural storytelling.",
-  qualifications: [
-    "B.A. African Languages & Literature, University of Ibadan",
-    "Post-Graduate Diploma in Early Childhood Education",
-    "Certified British & American Online Bilingual Curriculum Lead"
-  ]
-};
-
-const defaultInvoices: Invoice[] = [
-  {
-    id: "inv-001",
-    invoiceNumber: "NLH-2026-0901",
-    date: "Sep 15, 2026",
-    description: "Heritage Starter Plan — 4 Live 1-on-1 Classes + AI Tutor",
-    amountUSD: 90,
-    amountNGN: 125000,
-    status: "Paid",
-    method: "Mastercard (ending 4242)",
-    receiptUrl: "#receipt"
-  },
-  {
-    id: "inv-002",
-    invoiceNumber: "NLH-2026-0815",
-    date: "Aug 15, 2026",
-    description: "Heritage Starter Plan — 4 Live 1-on-1 Classes + AI Tutor",
-    amountUSD: 90,
-    amountNGN: 125000,
-    status: "Paid",
-    method: "Paystack Bank Transfer (GTBank)",
-    receiptUrl: "#receipt"
-  }
-];
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [classes, setClasses] = useState<ScheduledClass[]>(defaultClasses);
-  const [assignments, setAssignments] = useState<Assignment[]>(defaultAssignments);
-  const [student, setStudent] = useState<StudentProfileData>(defaultStudent);
-  const [staff, setStaff] = useState<StaffProfileData>(defaultStaff);
-  const [invoices, setInvoices] = useState<Invoice[]>(defaultInvoices);
+  const [db, setDb] = useState<HubDatabase>(initialDatabase);
+  const [currentRole, setCurrentRole] = useState<UserRole>("student");
+  const [currentUserId, setCurrentUserId] = useState<string>("student-active");
   const [activeMeeting, setActiveMeeting] = useState<ScheduledClass | null>(null);
+  const [isSupabaseConnected, setIsSupabaseConnected] = useState<boolean>(isSupabaseConfigured);
 
-  // Sync from localStorage if present
+  // Sync from Supabase or localStorage on mount
   useEffect(() => {
     try {
-      const storedClasses = localStorage.getItem("nlh_classes");
-      const storedAssignments = localStorage.getItem("nlh_assignments");
-      const storedInvoices = localStorage.getItem("nlh_invoices");
-      const storedStudent = localStorage.getItem("nlh_student");
-      if (storedClasses) setClasses(JSON.parse(storedClasses));
-      if (storedAssignments) setAssignments(JSON.parse(storedAssignments));
-      if (storedInvoices) setInvoices(JSON.parse(storedInvoices));
-      if (storedStudent) setStudent(JSON.parse(storedStudent));
+      const storedDb = localStorage.getItem("nlh_database_v2");
+      const storedRole = localStorage.getItem("nlh_role_v2") as UserRole | null;
+      const storedUserId = localStorage.getItem("nlh_userid_v2");
+
+      if (storedDb) {
+        setDb(JSON.parse(storedDb));
+      }
+      if (storedRole) {
+        setCurrentRole(storedRole);
+      }
+      if (storedUserId) {
+        setCurrentUserId(storedUserId);
+      }
+
+      // If Supabase is configured with real URL and key, fetch live tables
+      if (isSupabaseConfigured) {
+        fetchSupabaseDatabase().then((liveDb) => {
+          if (liveDb) {
+            setDb(liveDb);
+            setIsSupabaseConnected(true);
+          }
+        });
+      }
     } catch {
-      // LocalStorage not available or parse error
+      // Local storage unavailable
     }
   }, []);
 
+  const saveDb = (updated: HubDatabase) => {
+    setDb(updated);
+    try {
+      localStorage.setItem("nlh_database_v2", JSON.stringify(updated));
+    } catch {}
+  };
+
+  // Safe default fallback objects when tables are empty
+  const defaultAdmin: AdminUser = {
+    id: "admin-ngozi",
+    name: "Dr. Ngozi Balogun",
+    email: "admin@naijalang.com",
+    role: "admin",
+    title: "Director of Academics",
+    department: "Hub Operations",
+    avatarLetters: "NB",
+    lastActive: "Active Now"
+  };
+
+  const defaultTeacher: TeacherUser = {
+    id: "teacher-default",
+    name: "Faculty Educator",
+    email: "educator@naijalang.com",
+    phone: "+234 800 000 0000",
+    role: "teacher",
+    title: "Heritage Language Educator",
+    avatarLetters: "FE",
+    languagesTaught: ["Yoruba", "Igbo", "Hausa", "Ibibio"],
+    assignedStudentIds: [],
+    totalStudents: 0,
+    rating: 5.0,
+    classesCompleted: 0,
+    bio: "Certified native language educator specializing in diaspora heritage acquisition.",
+    qualifications: [
+      "Certified African Language Pedagogy Specialist",
+      "Over 10 years of immersive language instruction",
+      "Verified heritage culture mentor"
+    ]
+  };
+
+  const defaultParent: ParentUser = {
+    id: "parent-default",
+    name: "Parent / Guardian",
+    email: "parent@naijalang.com",
+    phone: "+1 234 567 8900",
+    role: "parent",
+    childrenIds: [],
+    billingStatus: "Active",
+    accountCreated: "Recently",
+    city: "Lagos",
+    country: "Nigeria"
+  };
+
+  const defaultStudent: StudentUser = {
+    id: "student-default",
+    parentId: "parent-default",
+    name: "Heritage Learner",
+    email: "student@naijalang.com",
+    age: 8,
+    role: "student",
+    enrolledLanguage: "Heritage Course",
+    level: "Foundation Track",
+    streakDays: 0,
+    xpPoints: 0,
+    assignedTeacherId: "teacher-default",
+    assignedTeacher: "Faculty Educator",
+    avatarLetter: "H",
+    attendanceRate: 100,
+    bio: "Student learning Nigerian heritage languages.",
+    badges: []
+  };
+
+  // Derive current user object
+  const getCurrentUser = (): AdminUser | TeacherUser | ParentUser | StudentUser => {
+    if (currentRole === "admin") {
+      return db.admins.find((a) => a.id === currentUserId) || db.admins[0] || defaultAdmin;
+    }
+    if (currentRole === "teacher") {
+      return db.teachers.find((t) => t.id === currentUserId) || db.teachers[0] || defaultTeacher;
+    }
+    if (currentRole === "parent") {
+      return db.parents.find((p) => p.id === currentUserId) || db.parents[0] || defaultParent;
+    }
+    return db.students.find((s) => s.id === currentUserId) || db.students[0] || defaultStudent;
+  };
+
+  const currentUser = getCurrentUser();
+
+  const switchUser = (role: UserRole, id?: string) => {
+    setCurrentRole(role);
+    try {
+      localStorage.setItem("nlh_role_v2", role);
+    } catch {}
+
+    let nextId = id;
+    if (!nextId) {
+      if (role === "admin") nextId = db.admins[0]?.id || "admin-ngozi";
+      else if (role === "teacher") nextId = db.teachers[0]?.id || "teacher-default";
+      else if (role === "parent") nextId = db.parents[0]?.id || "parent-default";
+      else nextId = db.students[0]?.id || "student-default";
+    }
+    setCurrentUserId(nextId);
+    try {
+      localStorage.setItem("nlh_userid_v2", nextId);
+    } catch {}
+  };
+
+  const logout = () => {
+    switchUser("student", db.students[0]?.id || "student-default");
+  };
+
+  // ==========================================
+  // PRIVACY ISOLATION FILTERS
+  // ==========================================
+
+  // 1. CLASSES
+  // Admin: All classes
+  // Teacher: ONLY classes they teach
+  // Parent: ONLY classes for their children (sanitized: no teacher private info)
+  // Student: ONLY classes they attend
+  const roleClasses: ScheduledClass[] = React.useMemo(() => {
+    if (currentRole === "admin") return db.classes;
+    if (currentRole === "teacher") {
+      return db.classes.filter((c) => c.teacherId === currentUser.id);
+    }
+    if (currentRole === "parent") {
+      const parentUser = currentUser as ParentUser;
+      const childIds = parentUser.childrenIds || [];
+      return db.classes.filter((c) => childIds.includes(c.studentId));
+    }
+    // Student
+    return db.classes.filter((c) => c.studentId === currentUser.id);
+  }, [db.classes, currentRole, currentUser]);
+
+  // 2. ASSIGNMENTS
+  // Admin: All assignments
+  // Teacher: ONLY assignments for their assigned students
+  // Parent: ONLY assignments for their children
+  // Student: ONLY assignments for this student
+  const roleAssignments: Assignment[] = React.useMemo(() => {
+    if (currentRole === "admin") return db.assignments;
+    if (currentRole === "teacher") {
+      return db.assignments.filter((a) => a.teacherId === currentUser.id);
+    }
+    if (currentRole === "parent") {
+      const parentUser = currentUser as ParentUser;
+      const childIds = parentUser.childrenIds || [];
+      return db.assignments.filter((a) => childIds.includes(a.studentId));
+    }
+    // Student
+    return db.assignments.filter((a) => a.studentId === currentUser.id);
+  }, [db.assignments, currentRole, currentUser]);
+
+  // 3. STUDENTS
+  // Admin: All students
+  // Teacher: ONLY assigned students (Parent identity / billing NOT attached)
+  // Parent: ONLY their own children
+  // Student: ONLY themselves
+  const roleStudents: StudentUser[] = React.useMemo(() => {
+    if (currentRole === "admin") return db.students;
+    if (currentRole === "teacher") {
+      const teacher = currentUser as TeacherUser;
+      const studentIds = teacher.assignedStudentIds || [];
+      return db.students.filter((s) => studentIds.includes(s.id));
+    }
+    if (currentRole === "parent") {
+      const parent = currentUser as ParentUser;
+      const childIds = parent.childrenIds || [];
+      return db.students.filter((s) => childIds.includes(s.id));
+    }
+    return db.students.filter((s) => s.id === currentUser.id);
+  }, [db.students, currentRole, currentUser]);
+
+  // 4. TEACHERS
+  // Admin: All teachers
+  // Teacher: ONLY themselves
+  // Parent: NONE (privacy rule: "parent should not see teacher")
+  // Student: NONE (sanitized instructor tag only on classes)
+  const roleTeachers: TeacherUser[] = React.useMemo(() => {
+    if (currentRole === "admin") return db.teachers;
+    if (currentRole === "teacher") {
+      return db.teachers.filter((t) => t.id === currentUser.id);
+    }
+    // Parents and students do not access teacher directories or private credentials
+    return [];
+  }, [db.teachers, currentRole, currentUser]);
+
+  // 5. PARENTS
+  // Admin: All parents
+  // Parent: ONLY themselves
+  // Teacher: NONE (privacy rule: "teacher not see parent")
+  // Student: NONE
+  const roleParents: ParentUser[] = React.useMemo(() => {
+    if (currentRole === "admin") return db.parents;
+    if (currentRole === "parent") {
+      return db.parents.filter((p) => p.id === currentUser.id);
+    }
+    // Teachers and Students NEVER see parent profiles
+    return [];
+  }, [db.parents, currentRole, currentUser]);
+
+  // 6. INVOICES
+  // Admin: All invoices
+  // Parent: ONLY invoices belonging to this parent
+  // Teacher: NONE (teachers have ZERO financial access)
+  // Student: NONE
+  const roleInvoices: Invoice[] = React.useMemo(() => {
+    if (currentRole === "admin") return db.invoices;
+    if (currentRole === "parent") {
+      return db.invoices.filter((inv) => inv.parentId === currentUser.id);
+    }
+    // Teacher & Student have 0 billing access
+    return [];
+  }, [db.invoices, currentRole, currentUser]);
+
+  // Backward compatible primary objects
+  const activeStudent: StudentUser = React.useMemo(() => {
+    if (currentRole === "student") return (currentUser as StudentUser) || db.students[0] || defaultStudent;
+    if (currentRole === "parent") {
+      const p = currentUser as ParentUser;
+      return db.students.find((s) => p.childrenIds?.includes(s.id)) || db.students[0] || defaultStudent;
+    }
+    if (currentRole === "teacher") {
+      const t = currentUser as TeacherUser;
+      return db.students.find((s) => t.assignedStudentIds?.includes(s.id)) || db.students[0] || defaultStudent;
+    }
+    return db.students[0] || defaultStudent;
+  }, [currentRole, currentUser, db.students, defaultStudent]);
+
+  const activeStaff: TeacherUser = React.useMemo(() => {
+    if (currentRole === "teacher") return (currentUser as TeacherUser) || db.teachers[0] || defaultTeacher;
+    return db.teachers[0] || defaultTeacher;
+  }, [currentRole, currentUser, db.teachers, defaultTeacher]);
+
+  // Interactive Live Meeting launcher
   const openMeetingLauncher = (cls: ScheduledClass) => {
     setActiveMeeting(cls);
   };
@@ -296,45 +369,61 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActiveMeeting(null);
   };
 
+  // Student Submits Assignment
   const submitAssignment = (
     assignmentId: string,
     responseText: string,
     fileName?: string,
     hasAudio?: boolean
   ) => {
-    const updated = assignments.map((asg) => {
+    const submission = {
+      submittedAt: "Just now (" + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ")",
+      textResponse: responseText,
+      fileName: fileName || (hasAudio ? "voice_practice.mp3" : "completed_exercise.pdf"),
+      hasAudioRecording: !!hasAudio,
+      audioDuration: hasAudio ? "0:45" : undefined
+    };
+
+    const updatedAssignments = db.assignments.map((asg) => {
       if (asg.id === assignmentId) {
         return {
           ...asg,
           status: "submitted" as const,
-          studentSubmission: {
-            submittedAt: "Just now (" + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ")",
-            textResponse: responseText,
-            fileName: fileName || (hasAudio ? "audio_submission.mp3" : "assignment_work.pdf"),
-            hasAudioRecording: !!hasAudio,
-            audioDuration: hasAudio ? "0:45" : undefined
-          }
+          studentSubmission: submission
         };
       }
       return asg;
     });
 
-    setAssignments(updated);
-    try {
-      localStorage.setItem("nlh_assignments", JSON.stringify(updated));
-    } catch {}
+    let targetStudentId = "";
+    let nextXP = 0;
 
-    // Award XP to student for submitting!
-    setStudent((prev) => {
-      const nextXP = prev.xpPoints + 100;
-      const updatedStudent = { ...prev, xpPoints: nextXP };
-      try {
-        localStorage.setItem("nlh_student", JSON.stringify(updatedStudent));
-      } catch {}
-      return updatedStudent;
+    // Award +100 XP to student
+    const updatedStudents = db.students.map((s) => {
+      const targetAsg = db.assignments.find((a) => a.id === assignmentId);
+      if (targetAsg && s.id === targetAsg.studentId) {
+        targetStudentId = s.id;
+        nextXP = s.xpPoints + 100;
+        return { ...s, xpPoints: nextXP };
+      }
+      return s;
     });
+
+    const updatedDb: HubDatabase = {
+      ...db,
+      assignments: updatedAssignments,
+      students: updatedStudents
+    };
+
+    saveDb(updatedDb);
+
+    // Sync to Supabase in the background
+    if (targetStudentId) {
+      syncAssignmentSubmissionToSupabase(assignmentId, submission, nextXP, targetStudentId);
+    }
   };
 
+  // Teacher Grades Assignment
   const gradeAssignment = (
     assignmentId: string,
     score: number,
@@ -348,88 +437,214 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     else if (score < 90) letter = "A-";
     else if (score < 95) letter = "A";
 
-    const updated = assignments.map((asg) => {
+    const targetAsg = db.assignments.find((a) => a.id === assignmentId);
+    const teacherName = currentRole === "teacher" ? currentUser.name : (targetAsg?.teacherId ? db.teachers.find(t => t.id === targetAsg.teacherId)?.name || "Instructor" : "Instructor");
+    const teacherId = currentRole === "teacher" ? currentUser.id : (targetAsg?.teacherId || db.teachers[0]?.id || "teacher-active");
+
+    const gradeRecord = {
+      score,
+      letter,
+      gradedAt: "Today, " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      gradedById: teacherId,
+      gradedBy: teacherName,
+      feedback,
+      badges
+    };
+
+    const updatedAssignments = db.assignments.map((asg) => {
       if (asg.id === assignmentId) {
         return {
           ...asg,
           status: "graded" as const,
-          grade: {
-            score,
-            letter,
-            gradedAt: "Today, " + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            gradedBy: staff.name,
-            feedback,
-            badges
-          }
+          grade: gradeRecord
         };
       }
       return asg;
     });
 
-    setAssignments(updated);
-    try {
-      localStorage.setItem("nlh_assignments", JSON.stringify(updated));
-    } catch {}
+    // Update student's badges if newly awarded
+    let updatedStudents = db.students;
+    let studentBadgesToSync: StudentUser["badges"] | undefined = undefined;
 
-    // Add any newly awarded badges to student's profile!
-    if (badges.length > 0) {
-      setStudent((prev) => {
-        const newBadges = [...prev.badges];
-        badges.forEach((bName) => {
-          if (!newBadges.some((existing) => existing.name === bName)) {
-            newBadges.push({
-              id: "b-" + Date.now() + Math.random().toString(36).substr(2, 4),
-              name: bName,
-              icon: "award",
-              dateEarned: "Just now"
-            });
-          }
-        });
-        const updatedStudent = { ...prev, badges: newBadges };
-        try {
-          localStorage.setItem("nlh_student", JSON.stringify(updatedStudent));
-        } catch {}
-        return updatedStudent;
+    if (targetAsg) {
+      updatedStudents = db.students.map((s) => {
+        if (s.id === targetAsg.studentId) {
+          const newBadges = [...s.badges];
+          badges.forEach((bName) => {
+            if (!newBadges.some((existing) => existing.name === bName)) {
+              newBadges.push({
+                id: "b-" + Date.now() + Math.random().toString(36).substr(2, 4),
+                name: bName,
+                icon: "award",
+                dateEarned: "Today"
+              });
+            }
+          });
+          studentBadgesToSync = newBadges;
+          return { ...s, badges: newBadges };
+        }
+        return s;
       });
+    }
+
+    const updatedDb: HubDatabase = {
+      ...db,
+      assignments: updatedAssignments,
+      students: updatedStudents
+    };
+
+    saveDb(updatedDb);
+
+    // Sync to Supabase in the background
+    if (targetAsg) {
+      syncAssignmentGradingToSupabase(assignmentId, gradeRecord, targetAsg.studentId, studentBadgesToSync);
     }
   };
 
+  // Parent Processes Payment
   const processPayment = async (
     amountUSD: number,
     amountNGN: number,
     method: string,
-    planName: string
+    planName: string,
+    studentId?: string
   ): Promise<boolean> => {
-    // Simulate payment delay
-    await new Promise((res) => setTimeout(res, 1200));
+    await new Promise((res) => setTimeout(res, 1000));
+
+    const parentId = currentRole === "parent" ? currentUser.id : (db.parents[0]?.id || "parent-active");
+    const assignedStudentId = studentId || (currentRole === "parent" ? (currentUser as ParentUser).childrenIds[0] : (db.students[0]?.id || "student-active"));
 
     const newInvoice: Invoice = {
       id: "inv-" + Date.now(),
       invoiceNumber: "NLH-" + new Date().getFullYear() + "-" + Math.floor(1000 + Math.random() * 9000),
+      parentId,
+      studentId: assignedStudentId,
       date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-      description: planName || "Heritage Starter Plan — 4 Live 1-on-1 Classes + AI Tutor",
+      description: planName || "Heritage Language Immersion — 4 Live Sessions + AI Practice",
       amountUSD,
       amountNGN,
       status: "Paid",
       method,
-      receiptUrl: "#download"
+      receiptUrl: "#download-receipt"
     };
 
-    const updatedInvoices = [newInvoice, ...invoices];
-    setInvoices(updatedInvoices);
-    try {
-      localStorage.setItem("nlh_invoices", JSON.stringify(updatedInvoices));
-    } catch {}
+    const updatedDb: HubDatabase = {
+      ...db,
+      invoices: [newInvoice, ...db.invoices]
+    };
+
+    saveDb(updatedDb);
+
+    // Sync to Supabase
+    syncPaymentToSupabase(newInvoice);
 
     return true;
   };
 
+  // Admin Assigns Teacher to Student
+  const adminAssignTeacher = (studentId: string, teacherId: string) => {
+    const updatedStudents = db.students.map((s) => {
+      if (s.id === studentId) {
+        return { ...s, assignedTeacherId: teacherId };
+      }
+      return s;
+    });
+
+    const updatedTeachers = db.teachers.map((t) => {
+      let assigned = [...t.assignedStudentIds];
+      if (t.id === teacherId) {
+        if (!assigned.includes(studentId)) assigned.push(studentId);
+      } else {
+        assigned = assigned.filter((id) => id !== studentId);
+      }
+      return { ...t, assignedStudentIds: assigned };
+    });
+
+    saveDb({ ...db, students: updatedStudents, teachers: updatedTeachers });
+
+    // Sync to Supabase
+    syncTeacherReassignmentToSupabase(studentId, teacherId);
+  };
+
+  // Admin Creates New Class
+  const adminCreateClass = (newClass: Omit<ScheduledClass, "id">) => {
+    const id = "cls-" + Date.now();
+    const created: ScheduledClass = { ...newClass, id };
+    saveDb({
+      ...db,
+      classes: [...db.classes, created]
+    });
+    syncClassToSupabase(created);
+  };
+
+  // Admin Creates New Student
+  const adminCreateStudent = (newStudent: Omit<StudentUser, "id">) => {
+    const id = "student-" + Date.now();
+    const created: StudentUser = { ...newStudent, id };
+    
+    // Also link to parent
+    const updatedParents = db.parents.map((p) => {
+      if (p.id === newStudent.parentId) {
+        return { ...p, childrenIds: [...p.childrenIds, id] };
+      }
+      return p;
+    });
+
+    // Also link to teacher
+    const updatedTeachers = db.teachers.map((t) => {
+      if (t.id === newStudent.assignedTeacherId) {
+        return { ...t, assignedStudentIds: [...t.assignedStudentIds, id] };
+      }
+      return t;
+    });
+
+    saveDb({
+      ...db,
+      students: [...db.students, created],
+      parents: updatedParents,
+      teachers: updatedTeachers
+    });
+    syncStudentToSupabase(created);
+  };
+
+  // Admin Creates New Teacher
+  const adminCreateTeacher = (newTeacher: Omit<TeacherUser, "id">) => {
+    const id = "teacher-" + Date.now();
+    const created: TeacherUser = { ...newTeacher, id };
+    saveDb({
+      ...db,
+      teachers: [...db.teachers, created]
+    });
+    syncTeacherToSupabase(created);
+  };
+
+  // Admin Creates New Parent
+  const adminCreateParent = (newParent: Omit<ParentUser, "id">) => {
+    const id = "parent-" + Date.now();
+    const created: ParentUser = { ...newParent, id };
+    saveDb({
+      ...db,
+      parents: [...db.parents, created]
+    });
+    syncParentToSupabase(created);
+  };
+
+  // Admin Updates Student Status
+  const adminUpdateStudentStatus = (studentId: string, updates: Partial<StudentUser>) => {
+    const updatedStudents = db.students.map((s) => {
+      if (s.id === studentId) {
+        return { ...s, ...updates };
+      }
+      return s;
+    });
+    saveDb({ ...db, students: updatedStudents });
+  };
+
+  // Reset to default
   const resetToDefaultData = () => {
-    setClasses(defaultClasses);
-    setAssignments(defaultAssignments);
-    setStudent(defaultStudent);
-    setStaff(defaultStaff);
-    setInvoices(defaultInvoices);
+    saveDb(initialDatabase);
+    setCurrentRole("student");
+    setCurrentUserId(initialDatabase.students[0]?.id || "student-default");
     try {
       localStorage.clear();
     } catch {}
@@ -438,17 +653,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider
       value={{
-        classes,
-        assignments,
-        student,
-        staff,
-        invoices,
+        db,
+        isSupabaseConnected,
+        currentRole,
+        currentUser,
+        switchUser,
+        logout,
+        roleClasses,
+        roleAssignments,
+        roleStudents,
+        roleTeachers,
+        roleParents,
+        roleInvoices,
+        // Legacy props
+        classes: roleClasses,
+        assignments: roleAssignments,
+        student: activeStudent,
+        staff: activeStaff,
+        invoices: roleInvoices,
         activeMeeting,
         openMeetingLauncher,
         closeMeetingLauncher,
         submitAssignment,
         gradeAssignment,
         processPayment,
+        adminAssignTeacher,
+        adminCreateClass,
+        adminCreateStudent,
+        adminCreateTeacher,
+        adminCreateParent,
+        adminUpdateStudentStatus,
         resetToDefaultData
       }}
     >

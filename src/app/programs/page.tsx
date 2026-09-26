@@ -163,10 +163,10 @@ export default function Programs() {
               <div className={styles.mockupBody}>
                 <div className={styles.videoGrid}>
                   <div className={styles.videoMain}>
-                    <div className={styles.teacherTag}>Teacher Mrs. Ojo</div>
+                    <div className={styles.teacherTag}>Native Language Instructor</div>
                   </div>
                   <div className={styles.videoSelf}>
-                    <div className={styles.studentTag}>Samuel</div>
+                    <div className={styles.studentTag}>Enrolled Learner</div>
                   </div>
                 </div>
                 <div className={styles.mockupControls}>

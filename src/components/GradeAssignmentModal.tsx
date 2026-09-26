@@ -21,14 +21,9 @@ interface GradeAssignmentModalProps {
 
 export default function GradeAssignmentModal({ assignment, onClose }: GradeAssignmentModalProps) {
   const { gradeAssignment, student } = useApp();
-  const [score, setScore] = useState<number>(assignment?.grade?.score || 95);
-  const [feedback, setFeedback] = useState<string>(
-    assignment?.grade?.feedback || 
-    "O kare pupo (Well done), Samuel! Your pronunciation is clear and you respected the tone markings. Keep up the wonderful work!"
-  );
-  const [selectedBadges, setSelectedBadges] = useState<string[]>(
-    assignment?.grade?.badges || ["Tone Master"]
-  );
+  const [score, setScore] = useState<number>(assignment?.grade?.score || 90);
+  const [feedback, setFeedback] = useState<string>(assignment?.grade?.feedback || "");
+  const [selectedBadges, setSelectedBadges] = useState<string[]>(assignment?.grade?.badges || []);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -147,7 +142,7 @@ export default function GradeAssignmentModal({ assignment, onClose }: GradeAssig
                 Grade & Feedback Published!
               </h3>
               <p style={{ color: "var(--color-gray-600)", marginTop: "8px" }}>
-                Score of <strong>{score}/100</strong> and badge accolades have been added to Samuel's report card and Parent Portal.
+                Score of <strong>{score}/100</strong> and badge accolades have been added to the student&apos;s academic report card.
               </p>
             </div>
           ) : (

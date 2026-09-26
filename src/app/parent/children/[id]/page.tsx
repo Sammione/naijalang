@@ -2,32 +2,35 @@
 
 import React from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useApp } from "@/context/AppContext";
 import { 
   Award, 
   BookOpen, 
-  Calendar, 
   CheckCircle, 
-  Star, 
-  TrendingUp, 
-  Video, 
-  Sparkles,
-  ArrowRight,
-  FileText
+  Sparkles, 
+  Video 
 } from "lucide-react";
 
-export default function SamuelChildProfile() {
-  const { student, roleAssignments, roleClasses, openMeetingLauncher } = useApp();
+export default function ChildDetailPage() {
+  const params = useParams();
+  const childId = params?.id as string;
+  const { db, roleStudents, roleAssignments, roleClasses, openMeetingLauncher } = useApp();
 
-  const nextClass = roleClasses[0];
-  const gradedAssignments = roleAssignments.filter((a) => a.status === "graded");
+  // Find targeted child from role students or db
+  const child = roleStudents.find(s => s.id === childId) || db.students.find(s => s.id === childId) || roleStudents[0];
+
+  const studentClasses = roleClasses.filter(c => c.studentId === child?.id);
+  const nextClass = studentClasses[0];
+  const studentAssignments = roleAssignments.filter(a => a.studentId === child?.id);
+  const gradedAssignments = studentAssignments.filter((a) => a.status === "graded");
 
   // Calculate average score
   const totalScore = gradedAssignments.reduce((acc, a) => acc + (a.grade?.score || 0), 0);
-  const avgScore = gradedAssignments.length > 0 ? Math.round(totalScore / gradedAssignments.length) : (student?.attendanceRate || 100);
+  const avgScore = gradedAssignments.length > 0 ? Math.round(totalScore / gradedAssignments.length) : (child?.attendanceRate || 100);
 
-  const studentName = student?.name || "Enrolled Learner";
-  const avatarLetter = student?.avatarLetter || studentName[0] || "S";
+  const studentName = child?.name || "Enrolled Learner";
+  const avatarLetter = child?.avatarLetter || studentName[0] || "S";
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-8)" }}>
@@ -44,7 +47,7 @@ export default function SamuelChildProfile() {
             </span>
           </div>
           <p className="text-gray-500 mt-1">
-            Age {student?.age || 8} • {student?.enrolledLanguage || "Heritage Course"} • {student?.level || "Foundation"}
+            Age {child?.age || 8} • {child?.enrolledLanguage || "Heritage Course"} • {child?.level || "Foundation Track"}
           </p>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
@@ -87,7 +90,7 @@ export default function SamuelChildProfile() {
             <CheckCircle size={18} color="#16a34a" />
           </div>
           <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--color-secondary)", marginTop: "8px" }}>
-            {student?.attendanceRate || 100}%
+            {child?.attendanceRate || 100}%
           </div>
           <span style={{ fontSize: "0.8rem", color: "var(--color-gray-600)" }}>
             Live interactive attendance
@@ -100,10 +103,10 @@ export default function SamuelChildProfile() {
             <BookOpen size={18} color="#2563eb" />
           </div>
           <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--color-secondary)", marginTop: "8px" }}>
-            {gradedAssignments.length} / {roleAssignments.length}
+            {gradedAssignments.length} / {studentAssignments.length}
           </div>
           <span style={{ fontSize: "0.8rem", color: "var(--color-primary)", fontWeight: 600 }}>
-            {roleAssignments.filter(a => a.status === "submitted").length} currently under review
+            {studentAssignments.filter(a => a.status === "submitted").length} currently under review
           </span>
         </div>
 
@@ -113,7 +116,7 @@ export default function SamuelChildProfile() {
             <Sparkles size={18} color="#eab308" />
           </div>
           <div style={{ fontSize: "2rem", fontWeight: 800, color: "var(--color-secondary)", marginTop: "8px" }}>
-            {student?.badges?.length || 0}
+            {child?.badges?.length || 0}
           </div>
           <span style={{ fontSize: "0.8rem", color: "var(--color-gray-600)" }}>
             Earned through mastery
@@ -174,13 +177,13 @@ export default function SamuelChildProfile() {
             </p>
           </div>
           <span style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--color-primary)" }}>
-            {student?.enrolledLanguage || "Language Curriculum"}
+            {child?.enrolledLanguage || "Language Curriculum"}
           </span>
         </div>
 
-        {roleAssignments.length > 0 ? (
+        {studentAssignments.length > 0 ? (
           <div style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            {roleAssignments.map((asg) => (
+            {studentAssignments.map((asg) => (
               <div
                 key={asg.id}
                 style={{

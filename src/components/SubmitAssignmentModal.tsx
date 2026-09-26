@@ -322,7 +322,7 @@ export default function SubmitAssignmentModal({ assignment, onClose }: SubmitAss
                   Attach Worksheet, Photo, or PDF
                 </label>
                 <div
-                  onClick={() => setFileName("yoruba_unit3_worksheet_samuel.pdf")}
+                  onClick={() => setFileName("heritage_worksheet_submission.pdf")}
                   style={{
                     border: "2px dashed var(--color-gray-300)",
                     borderRadius: "var(--radius-md)",

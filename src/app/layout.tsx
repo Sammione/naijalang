@@ -17,6 +17,10 @@ const lora = Lora({
 export const metadata: Metadata = {
   title: "Nija Language Hub | Nigerian Heritage Languages",
   description: "Learn Igbo, Yoruba, and Ibibio through live human instruction, structured curriculum, and cultural connection.",
+  icons: {
+    icon: "/logo.png",
+    apple: "/logo.png"
+  }
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

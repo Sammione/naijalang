@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import styles from "./student.module.css";
 import { useApp, ScheduledClass, Assignment } from "@/context/AppContext";
 import SubmitAssignmentModal from "@/components/SubmitAssignmentModal";
@@ -45,24 +46,17 @@ export default function StudentPortal() {
       <nav className={styles.topNav}>
         <div className={`container ${styles.navInner}`}>
           <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <Link href="/" className={styles.logo}>
-              Nija Language Hub
+            <Link href="/" className={styles.logo} style={{ display: "flex", alignItems: "center", gap: "10px", textDecoration: "none" }}>
+              <Image src="/logo.png" alt="Logo" width={38} height={38} style={{ borderRadius: "50%", border: "2px solid #e0b034" }} />
+              <span>Nija Language Hub</span>
             </Link>
             <span className={styles.badgeRole}>Student Portal</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-            <Link href="/parent" className="btn btn-outline" style={{ fontSize: "0.85rem", padding: "6px 14px" }}>
-              Parent View
-            </Link>
-            <Link href="/staff" className="btn btn-secondary" style={{ fontSize: "0.85rem", padding: "6px 14px" }}>
-              Staff View
-            </Link>
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "var(--color-primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
-                {student.avatarLetter}
-              </div>
-              <span className="font-semibold text-sm" style={{ display: "none" }}>{student.name}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "0.85rem", color: "#fef08a", fontWeight: 700 }}>{student.name}</span>
+            <div style={{ width: "36px", height: "36px", borderRadius: "50%", background: "var(--color-primary)", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>
+              {student.avatarLetter}
             </div>
           </div>
         </div>
@@ -119,7 +113,7 @@ export default function StudentPortal() {
             {/* Left Column: Live Class & Assignments */}
             <div>
               {/* Featured Live Class Widget */}
-              {nextLiveClass && (
+              {nextLiveClass ? (
                 <div className={styles.liveClassCard}>
                   <div className={styles.liveClassHeader}>
                     <div>
@@ -201,6 +195,18 @@ export default function StudentPortal() {
                     </button>
                   </div>
                 </div>
+              ) : (
+                <div className="card-floating" style={{ padding: "32px", textAlign: "center", backgroundColor: "white", marginBottom: "24px" }}>
+                  <div style={{ width: "56px", height: "56px", borderRadius: "50%", backgroundColor: "var(--color-primary-light)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+                    <Video size={28} color="var(--color-primary)" />
+                  </div>
+                  <h3 style={{ fontSize: "1.2rem", fontWeight: 700, color: "var(--color-secondary)", marginBottom: "6px" }}>
+                    No Live Sessions Scheduled Right Now
+                  </h3>
+                  <p style={{ color: "var(--color-gray-600)", fontSize: "0.9rem", maxWidth: "450px", margin: "0 auto" }}>
+                    Your educator or hub administrator will schedule your upcoming live video lessons. When a class is scheduled, your meeting launcher will appear here.
+                  </p>
+                </div>
               )}
 
               {/* Assignment & Classwork Hub */}
@@ -244,138 +250,158 @@ export default function StudentPortal() {
                 </div>
 
                 {/* Assignment Cards List */}
-                {filteredAssignments.map((asg) => (
-                  <div key={asg.id} className={styles.assignmentCard}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
-                      <div>
-                        <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)", textTransform: "uppercase" }}>
-                            {asg.subject}
-                          </span>
-                          <span style={{ color: "var(--color-gray-300)" }}>•</span>
-                          <span style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>
-                            {asg.dueDate}
-                          </span>
-                        </div>
-                        <h3 style={{ fontSize: "1.15rem", fontWeight: 600, color: "var(--color-secondary)", margin: 0 }}>
-                          {asg.title}
-                        </h3>
-                      </div>
-
-                      {/* Status Badges */}
-                      <div>
-                        {asg.status === "pending" && <span className={styles.badgePending}>Pending Submission</span>}
-                        {asg.status === "submitted" && <span className={styles.badgeSubmitted}>Under Review</span>}
-                        {asg.status === "graded" && (
-                          <span className={styles.badgeGraded}>
-                            Score: {asg.grade?.score}/100 ({asg.grade?.letter})
-                          </span>
-                        )}
-                      </div>
+                {filteredAssignments.length === 0 ? (
+                  <div className="card-floating" style={{ padding: "40px", textAlign: "center", backgroundColor: "white" }}>
+                    <div style={{ width: "52px", height: "52px", borderRadius: "50%", backgroundColor: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px" }}>
+                      <CheckCircle size={26} color="#16a34a" />
                     </div>
-
-                    <p style={{ fontSize: "0.9rem", color: "var(--color-gray-600)", lineHeight: 1.5, marginBottom: "16px" }}>
-                      {asg.description}
+                    <h3 style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--color-secondary)", marginBottom: "4px" }}>
+                      No Assignments in this Section
+                    </h3>
+                    <p style={{ color: "var(--color-gray-600)", fontSize: "0.85rem", margin: 0 }}>
+                      {activeTab === "pending"
+                        ? "You have completed all pending homework tasks!"
+                        : activeTab === "submitted"
+                        ? "No assignments currently awaiting teacher evaluation."
+                        : activeTab === "graded"
+                        ? "No graded assignments yet. Submit a task to receive official marks."
+                        : "No homework or classwork tasks assigned yet."}
                     </p>
-
-                    {/* Graded Details */}
-                    {asg.status === "graded" && asg.grade && (
-                      <div style={{
-                        backgroundColor: "#f0fdf4",
-                        border: "1px solid #bbf7d0",
-                        borderRadius: "var(--radius-md)",
-                        padding: "16px",
-                        marginBottom: "16px"
-                      }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "#166534", fontSize: "0.9rem" }}>
-                            <Award size={18} /> Teacher Evaluation by {asg.grade.gradedBy}:
-                          </div>
-                          <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#15803d" }}>
-                            {asg.grade.score}% ({asg.grade.letter})
-                          </span>
-                        </div>
-                        <p style={{ margin: "4px 0 10px", fontSize: "0.88rem", fontStyle: "italic", color: "#166534" }}>
-                          "{asg.grade.feedback}"
-                        </p>
-                        {asg.grade.badges && asg.grade.badges.length > 0 && (
-                          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-                            {asg.grade.badges.map((bName, i) => (
-                              <span
-                                key={i}
-                                style={{
-                                  backgroundColor: "white",
-                                  padding: "3px 8px",
-                                  borderRadius: "12px",
-                                  fontSize: "0.75rem",
-                                  fontWeight: 600,
-                                  color: "#166534",
-                                  border: "1px solid #86efac"
-                                }}
-                              >
-                                {bName}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Submitted details info */}
-                    {asg.status === "submitted" && asg.studentSubmission && (
-                      <div style={{
-                        backgroundColor: "#f0f9ff",
-                        border: "1px solid #bae6fd",
-                        borderRadius: "var(--radius-md)",
-                        padding: "12px 16px",
-                        marginBottom: "16px",
-                        fontSize: "0.85rem",
-                        color: "#0369a1"
-                      }}>
-                        <strong>Turned In ({asg.studentSubmission.submittedAt}):</strong> {asg.studentSubmission.textResponse}
-                        {asg.studentSubmission.fileName && (
-                          <div style={{ marginTop: "4px", fontSize: "0.8rem", color: "#0284c7", display: "flex", alignItems: "center", gap: "4px" }}>
-                            <FileText size={13} /> Attached: {asg.studentSubmission.fileName}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                      {asg.status === "pending" ? (
-                        <button
-                          onClick={() => setSelectedAssignmentForSubmission(asg)}
-                          className="btn btn-primary"
-                          style={{
-                            padding: "8px 20px",
-                            fontSize: "0.85rem",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px"
-                          }}
-                        >
-                          <Upload size={14} />
-                          Turn In / Submit Assignment
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => setSelectedAssignmentForSubmission(asg)}
-                          className="btn btn-outline"
-                          style={{
-                            padding: "6px 14px",
-                            fontSize: "0.8rem",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "6px"
-                          }}
-                        >
-                          {asg.status === "graded" ? "View Full Report" : "Resubmit / Update Work"}
-                        </button>
-                      )}
-                    </div>
                   </div>
-                ))}
+                ) : (
+                  filteredAssignments.map((asg) => (
+                    <div key={asg.id} className={styles.assignmentCard}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "12px", flexWrap: "wrap", gap: "8px" }}>
+                        <div>
+                          <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
+                            <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)", textTransform: "uppercase" }}>
+                              {asg.subject}
+                            </span>
+                            <span style={{ color: "var(--color-gray-300)" }}>•</span>
+                            <span style={{ fontSize: "0.75rem", color: "var(--color-gray-500)" }}>
+                              {asg.dueDate}
+                            </span>
+                          </div>
+                          <h3 style={{ fontSize: "1.15rem", fontWeight: 600, color: "var(--color-secondary)", margin: 0 }}>
+                            {asg.title}
+                          </h3>
+                        </div>
+
+                        {/* Status Badges */}
+                        <div>
+                          {asg.status === "pending" && <span className={styles.badgePending}>Pending Submission</span>}
+                          {asg.status === "submitted" && <span className={styles.badgeSubmitted}>Under Review</span>}
+                          {asg.status === "graded" && (
+                            <span className={styles.badgeGraded}>
+                              Score: {asg.grade?.score}/100 ({asg.grade?.letter})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <p style={{ fontSize: "0.9rem", color: "var(--color-gray-600)", lineHeight: 1.5, marginBottom: "16px" }}>
+                        {asg.description}
+                      </p>
+
+                      {/* Graded Details */}
+                      {asg.status === "graded" && asg.grade && (
+                        <div style={{
+                          backgroundColor: "#f0fdf4",
+                          border: "1px solid #bbf7d0",
+                          borderRadius: "var(--radius-md)",
+                          padding: "16px",
+                          marginBottom: "16px"
+                        }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "6px", fontWeight: 700, color: "#166534", fontSize: "0.9rem" }}>
+                              <Award size={18} /> Teacher Evaluation by {asg.grade.gradedBy}:
+                            </div>
+                            <span style={{ fontSize: "1.2rem", fontWeight: 800, color: "#15803d" }}>
+                              {asg.grade.score}% ({asg.grade.letter})
+                            </span>
+                          </div>
+                          <p style={{ margin: "4px 0 10px", fontSize: "0.88rem", fontStyle: "italic", color: "#166534" }}>
+                            "{asg.grade.feedback}"
+                          </p>
+                          {asg.grade.badges && asg.grade.badges.length > 0 && (
+                            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                              {asg.grade.badges.map((bName, i) => (
+                                <span
+                                  key={i}
+                                  style={{
+                                    backgroundColor: "white",
+                                    padding: "3px 8px",
+                                    borderRadius: "12px",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 600,
+                                    color: "#166534",
+                                    border: "1px solid #86efac"
+                                  }}
+                                >
+                                  {bName}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Submitted details info */}
+                      {asg.status === "submitted" && asg.studentSubmission && (
+                        <div style={{
+                          backgroundColor: "#f0f9ff",
+                          border: "1px solid #bae6fd",
+                          borderRadius: "var(--radius-md)",
+                          padding: "12px 16px",
+                          marginBottom: "16px",
+                          fontSize: "0.85rem",
+                          color: "#0369a1"
+                        }}>
+                          <strong>Turned In ({asg.studentSubmission.submittedAt}):</strong> {asg.studentSubmission.textResponse}
+                          {asg.studentSubmission.fileName && (
+                            <div style={{ marginTop: "4px", fontSize: "0.8rem", color: "#0284c7", display: "flex", alignItems: "center", gap: "4px" }}>
+                              <FileText size={13} /> Attached: {asg.studentSubmission.fileName}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                        {asg.status === "pending" ? (
+                          <button
+                            onClick={() => setSelectedAssignmentForSubmission(asg)}
+                            className="btn btn-primary"
+                            style={{
+                              padding: "8px 20px",
+                              fontSize: "0.85rem",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px"
+                            }}
+                          >
+                            <Upload size={14} />
+                            Turn In / Submit Assignment
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setSelectedAssignmentForSubmission(asg)}
+                            className="btn btn-outline"
+                            style={{
+                              padding: "6px 14px",
+                              fontSize: "0.8rem",
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "6px"
+                            }}
+                          >
+                            {asg.status === "graded" ? "View Full Report" : "Resubmit / Update Work"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
@@ -394,56 +420,63 @@ export default function StudentPortal() {
                 </div>
 
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                  {classes.map((cls) => (
-                    <div
-                      key={cls.id}
-                      style={{
-                        padding: "14px",
-                        backgroundColor: cls.status === "live" ? "#f0fdf4" : "var(--color-gray-50)",
-                        borderRadius: "var(--radius-md)",
-                        border: cls.status === "live" ? "1px solid #86efac" : "1px solid var(--color-gray-200)"
-                      }}
-                    >
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
-                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)" }}>
-                          {cls.date} • {cls.time}
-                        </span>
-                        <span style={{
-                          fontSize: "0.7rem",
-                          fontWeight: 700,
-                          padding: "2px 8px",
-                          borderRadius: "10px",
-                          backgroundColor: cls.platform === "google-meet" ? "#e0f2fe" : "#fef3c7",
-                          color: cls.platform === "google-meet" ? "#0369a1" : "#b45309"
-                        }}>
-                          {cls.platform === "google-meet" ? "Meet" : "Zoom"}
-                        </span>
-                      </div>
-                      <h4 style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--color-secondary)", margin: "0 0 4px" }}>
-                        {cls.title}
-                      </h4>
-                      <p style={{ fontSize: "0.8rem", color: "var(--color-gray-600)", margin: "0 0 10px" }}>
-                        Teacher: {cls.teacherName}
-                      </p>
-
-                      <button
-                        onClick={() => openMeetingLauncher(cls)}
-                        className="btn btn-outline"
+                  {classes.length === 0 ? (
+                    <div style={{ textAlign: "center", padding: "24px 12px", color: "var(--color-gray-500)", fontSize: "0.85rem" }}>
+                      <Calendar size={24} style={{ margin: "0 auto 8px", opacity: 0.5 }} />
+                      <p style={{ margin: 0 }}>No upcoming class sessions on your schedule.</p>
+                    </div>
+                  ) : (
+                    classes.map((cls) => (
+                      <div
+                        key={cls.id}
                         style={{
-                          width: "100%",
-                          padding: "6px 12px",
-                          fontSize: "0.8rem",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "6px"
+                          padding: "14px",
+                          backgroundColor: cls.status === "live" ? "#f0fdf4" : "var(--color-gray-50)",
+                          borderRadius: "var(--radius-md)",
+                          border: cls.status === "live" ? "1px solid #86efac" : "1px solid var(--color-gray-200)"
                         }}
                       >
-                        <Video size={14} />
-                        {cls.status === "live" ? "Join Class Now" : "Launch Meeting Details"}
-                      </button>
-                    </div>
-                  ))}
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "6px" }}>
+                          <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "var(--color-primary)" }}>
+                            {cls.date} • {cls.time}
+                          </span>
+                          <span style={{
+                            fontSize: "0.7rem",
+                            fontWeight: 700,
+                            padding: "2px 8px",
+                            borderRadius: "10px",
+                            backgroundColor: cls.platform === "google-meet" ? "#e0f2fe" : "#fef3c7",
+                            color: cls.platform === "google-meet" ? "#0369a1" : "#b45309"
+                          }}>
+                            {cls.platform === "google-meet" ? "Meet" : "Zoom"}
+                          </span>
+                        </div>
+                        <h4 style={{ fontSize: "0.95rem", fontWeight: 600, color: "var(--color-secondary)", margin: "0 0 4px" }}>
+                          {cls.title}
+                        </h4>
+                        <p style={{ fontSize: "0.8rem", color: "var(--color-gray-600)", margin: "0 0 10px" }}>
+                          Teacher: {cls.teacherName}
+                        </p>
+
+                        <button
+                          onClick={() => openMeetingLauncher(cls)}
+                          className="btn btn-outline"
+                          style={{
+                            width: "100%",
+                            padding: "6px 12px",
+                            fontSize: "0.8rem",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "6px"
+                          }}
+                        >
+                          <Video size={14} />
+                          {cls.status === "live" ? "Join Class Now" : "Launch Meeting Details"}
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -459,22 +492,30 @@ export default function StudentPortal() {
                   </span>
                 </div>
                 <p style={{ fontSize: "0.8rem", color: "var(--color-gray-500)", margin: "0 0 16px" }}>
-                  Badges awarded by {student.assignedTeacher} for mastery and participation.
+                  Badges awarded by {student.assignedTeacher || "faculty"} for mastery and participation.
                 </p>
 
-                <div className={styles.badgesGrid}>
-                  {student.badges.map((b) => (
-                    <div key={b.id} className={styles.badgeItem}>
-                      <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>
-                        <Award size={24} color="var(--color-primary)" />
+                {student.badges.length === 0 ? (
+                  <div style={{ textAlign: "center", padding: "24px 12px", color: "var(--color-gray-500)", fontSize: "0.85rem", backgroundColor: "var(--color-gray-50)", borderRadius: "var(--radius-md)" }}>
+                    <Award size={28} style={{ margin: "0 auto 6px", color: "var(--color-primary)", opacity: 0.6 }} />
+                    <p style={{ fontWeight: 600, color: "var(--color-secondary)", margin: "0 0 4px" }}>No badges unlocked yet</p>
+                    <p style={{ fontSize: "0.78rem", margin: 0 }}>Complete assignments and live speaking challenges to earn cultural accolades!</p>
+                  </div>
+                ) : (
+                  <div className={styles.badgesGrid}>
+                    {student.badges.map((b) => (
+                      <div key={b.id} className={styles.badgeItem}>
+                        <div style={{ display: "flex", justifyContent: "center", marginBottom: "6px" }}>
+                          <Award size={24} color="var(--color-primary)" />
+                        </div>
+                        <div className={styles.badgeName}>{b.name}</div>
+                        <div style={{ fontSize: "0.65rem", color: "var(--color-gray-500)", marginTop: "2px" }}>
+                          {b.dateEarned}
+                        </div>
                       </div>
-                      <div className={styles.badgeName}>{b.name}</div>
-                      <div style={{ fontSize: "0.65rem", color: "var(--color-gray-500)", marginTop: "2px" }}>
-                        {b.dateEarned}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -35,10 +35,10 @@ export default function PaymentModal({
   const [paymentMethod, setPaymentMethod] = useState<"card" | "transfer" | "paystack">("card");
   
   // Card form state
-  const [cardNumber, setCardNumber] = useState("4242 •••• •••• 4242");
-  const [cardExpiry, setCardExpiry] = useState("12/28");
-  const [cardCvc, setCardCvc] = useState("892");
-  const [cardName, setCardName] = useState("Adewale Olumide");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvc, setCardCvc] = useState("");
+  const [cardName, setCardName] = useState("");
   
   // Flow states
   const [isProcessing, setIsProcessing] = useState(false);
@@ -158,7 +158,7 @@ export default function PaymentModal({
                 Payment Successful!
               </h3>
               <p style={{ color: "var(--color-gray-600)", fontSize: "0.95rem", maxWidth: "400px", margin: "0 auto 20px" }}>
-                Your payment of <strong>{currentAmount}</strong> has been confirmed. Samuel's classes and curriculum materials are active!
+                Your payment of <strong>{currentAmount}</strong> has been confirmed. Class attendance and curriculum materials are active!
               </p>
 
               <div style={{
@@ -440,7 +440,7 @@ export default function PaymentModal({
                   <div style={{ backgroundColor: "white", padding: "12px", borderRadius: "var(--radius-sm)", border: "1px solid var(--color-gray-300)", display: "flex", flexDirection: "column", gap: "6px", fontSize: "0.85rem" }}>
                     <div><strong>Bank:</strong> GTBank / Paystack Titan</div>
                     <div><strong>Account Number:</strong> <span style={{ color: "var(--color-primary)", fontWeight: 700, fontSize: "1rem" }}>9920194821</span></div>
-                    <div><strong>Account Name:</strong> Nija Language Hub / Adewale</div>
+                    <div><strong>Account Name:</strong> Nija Language Hub Official</div>
                     <div><strong>Amount:</strong> ₦125,000.00</div>
                   </div>
                 </div>
